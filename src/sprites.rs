@@ -1,12 +1,12 @@
 use helpers::*;
 
 pub struct Jumper {
-    position: usize,
+    pub area: FallArea,
 }
 
-impl GameObject for Jumper {
-    fn draw(&self, fall_area: FallArea, lines: Vec<String>, pos: usize) -> Vec<String> {
-        let idx = (pos - 1) % fall_area.width;
+impl Sprite for Jumper {
+    fn draw(&self, frame: &Vec<String>, pos: usize) -> Vec<String> {
+        let idx = (pos - 1) % self.area.width;
         let body = ["  \\\\   //  ",
                     "   \\\\ //   ",
                     "====[o]====",
@@ -14,16 +14,16 @@ impl GameObject for Jumper {
                     .iter()
                     .map(|&string| string.to_owned())
                     .collect::<Vec<String>>();
-        draw_over(lines, body, 11, idx)
+        new_draw(self.area.clone(), body, idx)
     }
 }
 
 pub struct Smokes {
-    position: usize,
+    jumper: Jumper,
 }
 
-impl GameObject for Smokes {
-    fn draw(&self, fall_area: FallArea, lines: Vec<String>, size: usize) -> Vec<String> {
+impl Sprite for Smokes {
+    fn draw(&self, frame: &Vec<String>, size: usize) -> Vec<String> {
         let body: Vec<String> = (1..5).map(|part| {
             match part {
                 1 => fill_up(" ", " ", "_", size),     //      __
@@ -33,6 +33,6 @@ impl GameObject for Smokes {
                 _ => panic!("Unexpected value!"),
             }
         }).collect();
-        draw_over(lines, body, size + 2, 0)
+        merge_draw(frame, body, 1)
     }
 }
