@@ -1,18 +1,22 @@
+extern crate libc;
+
 mod sprites;
 mod helpers;
 
-use helpers::*;
-use sprites::*;
+use helpers::{FallArea, fill_up};
+use sprites::{Sprite, Jumper};
 
 fn main() {
-    let fall_area = FallArea { width: 100, height: 50 };
-    let user_env = (0..fall_area.height).map(|_| {
-        fill_up(" ", " ", " ", fall_area.width - 2)
-    }).collect::<Vec<String>>();
+    let fall_area = FallArea::new(100, 50);
+    let mut frame: Vec<String> = Vec::new();
     let jumper = Jumper { area: fall_area };
+    let top_indent = fall_area.height.1 / 2;
+    let bottom_indent = fall_area.height.1 - top;
+
     loop {
-        let frame = jumper.draw(&user_env, 44);
-        for line in frame {
+        frame = jumper.draw(&frame, 44);
+
+        for line in &frame {
             println!("\t| {} |", line);
         }
     }
