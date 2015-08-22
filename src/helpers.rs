@@ -20,6 +20,7 @@ fn window_size() -> (usize, usize) {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct FallArea {
     pub width: (usize, usize),      // (width, extra)
     pub height: (usize, usize),     // (height, extra)
@@ -41,30 +42,20 @@ impl FallArea {
     }
 }
 
-impl Clone for FallArea{
-    fn clone(&self) -> FallArea {
-        FallArea {
-            width: self.width.clone(),
-            height: self.height.clone(),
-        }
-    }
-}
-
-pub fn fill_up(start: &str, end: &str, ch: &str, length: usize) -> String {
-    let base = repeat(ch).take(length).collect::<String>();
-    start.to_owned() + &base + end
+pub fn multiply(ch: &str, length: usize) -> String {
+    repeat(ch).take(length).collect::<String>()
 }
 
 pub fn new_draw(area: FallArea, body: Vec<String>, idx: usize) -> Vec<String> {
     let (body_width, body_height) = (body[0].len(), body.len());
     (0..area.height.0).map(|i| {
         if i < body_height {
-            let start = fill_up(" ", " ", " ", idx - 2);
-            let end = fill_up(" ", " ", " ", area.width.0 - (idx + body_width) - 2);
+            let start = multiply(" ", idx);
+            let end = multiply(" ", area.width.0 - (idx + body_width));
             let line = String::from(start);
             line + &body[i] + &end
         } else {
-            fill_up(" ", " ", " ", area.width.0 - 2)
+            multiply(" ", area.width.0)
         }
     }).collect()
 }
