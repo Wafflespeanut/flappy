@@ -5,6 +5,7 @@ pub trait Sprite {
     fn draw(&self, frame: &Vec<String>) -> Vec<String>;
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Jumper {
     pub area: FallArea,
     pub x_pos: usize,
@@ -20,44 +21,47 @@ impl Jumper {
 }
 
 impl Sprite for Jumper {
-    fn draw(&self, frame: &Vec<String>) -> Vec<String> {
-        let idx = (self.x_pos - 1) % self.area.width.0;
+    fn draw(&self, _: &Vec<String>) -> Vec<String> {
+        let x_pos = (self.x_pos - 1) % self.area.width.0;   // limit the jumper to the screen width
         let body = ["  \\\\ //  ",
                     "===[O]==="]
                     .iter()
                     .map(|&string| string.to_owned())
                     .collect::<Vec<String>>();
-        new_draw(self.area.clone(), body, idx)
+        base_draw(self.area, body, x_pos)
     }
 }
 
 pub struct Cliff {
+    area: FallArea,
     x_pos: usize,
     y_pos: usize,
     size: usize,
 }
 
 impl Cliff {
-    fn new(jumper: Jumper) -> Cliff {
+    pub fn new(jumper: Jumper) -> Cliff {
         let mut rng = thread_rng();
-        let half_width = jumper.area.width.0 / 2;
-        let size: usize = rng.gen_range(0, half_width);
+        let full_width = jumper.area.width.0;
+        let half_width = full_width / 2;
+        let size: usize = rng.gen_range(1, half_width);
 
         let left_side = {
-            let jumper_side = jumper.x_pos.lt(&half_width);
+            let jumper_side = jumper.x_pos.le(&half_width);
             // increase the probability of hitting the jumper (by 2/3)
             rng.choose(&[true, false, jumper_side]).unwrap().clone()
         };
 
         let x_pos: usize = match left_side {
-            true => rng.gen_range(0, jumper.area.width.0 / 3),
-            false => jumper.area.width.0 - size - rng.gen_range(0, jumper.area.width.0 / 3),
+            true => rng.gen_range(1, full_width / 3) - 1,
+            false => jumper.area.width.0 - size - rng.gen_range(1, full_width / 3) - 1,
         };
 
         Cliff {
+            area: jumper.area,
             x_pos: x_pos,
-            y_pos: jumper.area.height.0 - 1,        // initial position of any cliff at the bottom
-            size: size,
+            y_pos: jumper.area.height.0 - 4,    // initial position of any cliff is at the bottom
+            size: size,         // this is just the length, as height is a constant "4" for now
         }
     }
 }
@@ -74,6 +78,6 @@ impl Sprite for Cliff {
                 _ => panic!("Unexpected value!"),
             }
         }).collect();
-        merge_draw(frame, body, self.x_pos)
+        merge_draw(self.area, &frame, body, self.x_pos, self.y_pos)
     }
 }

@@ -46,26 +46,34 @@ pub fn multiply(ch: &str, length: usize) -> String {
     repeat(ch).take(length).collect()
 }
 
-pub fn new_draw(area: FallArea, body: Vec<String>, idx: usize) -> Vec<String> {
+// Always used by Jumper and it's the base frame over which the subsequent frames are drawn
+pub fn base_draw(area: FallArea, body: Vec<String>, x_pos: usize) -> Vec<String> {
+    let empty = multiply(" ", area.width.0);
     let (body_width, body_height) = (body[0].len(), body.len());
     (0..area.height.0).map(|i| {
         if i < body_height {
-            let start = multiply(" ", idx);
-            let end = multiply(" ", area.width.0 - (idx + body_width));
-            let line = String::from(start);
-            line + &body[i] + &end
+            let start = multiply(" ", x_pos);
+            let end = multiply(" ", area.width.0 - (x_pos + body_width));
+            String::from(start) + &body[i] + &end
         } else {
-            multiply(" ", area.width.0)
+            empty.clone()
         }
     }).collect()
 }
 
-pub fn merge_draw(frame: &Vec<String>, body: Vec<String>, idx: usize) -> Vec<String> {
-    let body_width = body[0].len();
-    (0..frame.len()).map(|i| {
-        let line = &frame[i];
-        let (start, end) = (&line[..idx], &line[idx + body_width..]);
-        let line = String::from(start);
-        line + &body[i] + end
+// Always used by the obstacles, and they need y-position because they're always gonna move upwards
+pub fn merge_draw(area: FallArea, frame: &Vec<String>, body: Vec<String>, x_pos: usize, y_pos: usize) -> Vec<String> {
+    let empty = multiply(" ", area.width.0);
+    let (body_width, body_height) = (body[0].len(), body.len());
+    (0..area.height.0).map(|i| {
+        if i < y_pos {
+            frame[i].clone()
+        } else if i < (y_pos + body_height) {
+            let line = &frame[i];
+            let (start, end) = (&line[..x_pos], &line[x_pos + body_width..]);
+            String::from(start) + &body[i - y_pos] + end
+        } else {
+            empty.clone()
+        }
     }).collect()
 }

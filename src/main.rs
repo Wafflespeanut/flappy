@@ -5,8 +5,7 @@ mod sprites;
 mod helpers;
 
 use helpers::{FallArea, multiply};
-use sprites::{Sprite, Jumper};
-use std::iter::repeat;
+use sprites::*;
 use std::thread::sleep_ms;
 
 fn main() {
@@ -25,13 +24,15 @@ fn main() {
     let dashes = String::from("-") + &multiply("-", box_width) + "---";
     user_env_top.push(dashes.clone());
     let mut user_env_bottom: Vec<String> = vec![dashes];
-    for i in 0..bottom_indent - 1 {
+    for _ in 0..bottom_indent - 1 {
         user_env_bottom.push(multiply(" ", box_width));
     }
 
     loop {
-        sleep_ms(50);                   // 20 fps
+        sleep_ms(500);                   // testing at 2 fps
         frame = jumper.draw(&frame);
+        let cliff = Cliff::new(jumper);
+        frame = cliff.draw(&frame);
         for line in &user_env_top {
             println!("{}{}", left_shift, line);
         }
