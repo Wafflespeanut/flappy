@@ -1,4 +1,5 @@
 extern crate libc;
+extern crate rand;
 
 mod sprites;
 mod helpers;
@@ -29,7 +30,7 @@ fn main() {
     }
 
     loop {
-        sleep_ms(200);
+        sleep_ms(50);                   // 20 fps
         frame = jumper.draw(&frame);
         for line in &user_env_top {
             println!("{}{}", left_shift, line);

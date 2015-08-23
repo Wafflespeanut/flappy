@@ -43,7 +43,7 @@ impl FallArea {
 }
 
 pub fn multiply(ch: &str, length: usize) -> String {
-    repeat(ch).take(length).collect::<String>()
+    repeat(ch).take(length).collect()
 }
 
 pub fn new_draw(area: FallArea, body: Vec<String>, idx: usize) -> Vec<String> {
@@ -60,12 +60,12 @@ pub fn new_draw(area: FallArea, body: Vec<String>, idx: usize) -> Vec<String> {
     }).collect()
 }
 
-// pub fn merge_draw(frame: &Vec<String>, body: Vec<String>, idx: usize) -> Vec<String> {
-//     let body_width = body[0].len();
-//     (0..frame.len()).map(|i| {
-//         let line = &frame[i];
-//         let (start, end) = (&line[..idx], &line[idx + body_width..]);
-//         let line = String::from(start);
-//         line + &body[i] + end
-//     }).collect()
-// }
+pub fn merge_draw(frame: &Vec<String>, body: Vec<String>, idx: usize) -> Vec<String> {
+    let body_width = body[0].len();
+    (0..frame.len()).map(|i| {
+        let line = &frame[i];
+        let (start, end) = (&line[..idx], &line[idx + body_width..]);
+        let line = String::from(start);
+        line + &body[i] + end
+    }).collect()
+}
