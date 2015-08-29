@@ -1,15 +1,18 @@
 extern crate libc;
 extern crate rand;
 
-mod sprites;
 mod helpers;
+mod keyevents;
+mod sprites;
 
 use helpers::{FallArea, multiply};
+use keyevents::raw_mode;
 use sprites::*;
 use std::thread::sleep_ms;
 
 fn main() {
-    let fall_area = FallArea::new(75, 40);
+    raw_mode();
+    let fall_area = FallArea::new(65, 35);
     let mut frame: Vec<String> = Vec::new();
     let jumper = Jumper::new(fall_area);
 
@@ -34,13 +37,13 @@ fn main() {
         let cliff = Cliff::new(jumper);
         frame = cliff.draw(&frame);
         for line in &user_env_top {
-            println!("{}{}", left_shift, line);
+            println!("\r{}{}", left_shift, line);
         }
         for line in &frame {
-            println!("{}| {} |", left_shift, line);
+            println!("\r{}| {} |", left_shift, line);
         }
         for line in &user_env_bottom {
-            println!("{}{}", left_shift, line);
+            println!("\r{}{}", left_shift, line);
         }
     }
 }

@@ -64,6 +64,10 @@ impl Cliff {
             size: size,         // this is just the length, as height is a constant "4" for now
         }
     }
+
+    pub fn shift(&self, frame: &Vec<String>) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 impl Sprite for Cliff {

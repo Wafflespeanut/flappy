@@ -16,7 +16,10 @@ fn window_size() -> (usize, usize) {
     let val = unsafe { ioctl(STDOUT_FILENO, TIOCGWINSZ, &wsize) };
     match val {
         0 => (wsize.row as usize, wsize.col as usize),
-        _ => panic!("Couldn't get terminal window size!"),
+        _ => {
+            println!("\n\tERROR: Couldn't get terminal window size!\n");
+            panic!("getting terminal window size")
+        },
     }
 }
 
@@ -29,10 +32,12 @@ pub struct FallArea {
 impl FallArea {
     pub fn new(width: usize, height: usize) -> FallArea {
         let (rows, cols) = window_size();
-        if (width < 60) | (height < 30) | (rows < 30) | (cols < 60) {
-            panic!("Minimum window size is 30 rows and 60 columns!")
-        } else if (cols < width) | (rows < height) {
-            panic!("Requested window size is less than the available size. Please resize your terminal window!")
+        if (width < 50) | (height < 30) | (rows < 30) | (cols < 50) {
+            println!("\n\tERROR: Minimum window size is 30 rows and 50 columns!\n");
+            panic!("setting window size")
+        } else if (cols - 2 < width) | (rows - 2 < height) {    // the extra "2" is for drawing the box
+            println!("\n\tERROR: Requested window size is less than what's available!\n");
+            panic!("setting window size")
         } else {
             FallArea {
                 width: (width, cols - width),
