@@ -6,7 +6,7 @@ mod keyevents;
 mod sprites;
 
 use helpers::{FallArea, multiply};
-use keyevents::set_raw_mode;
+use keyevents::{set_raw_mode, read_keys};
 use sprites::*;
 use std::thread::sleep_ms;
 

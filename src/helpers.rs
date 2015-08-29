@@ -3,7 +3,7 @@ use libc::funcs::bsd44::ioctl;
 use std::iter::repeat;
 
 // NOTE: system-dependent constant (not available in libc yet, so you'd have to get it from your system)
-const TIOCGWINSZ: c_int = 0x5413;
+const TIOCGWINSZ: c_int = 21523;
 
 #[repr(C)]
 struct WindowSize {
@@ -17,7 +17,7 @@ fn window_size() -> (usize, usize) {            // get the current size of the t
     match val {
         0 => (wsize.row as usize, wsize.col as usize),
         _ => {
-            println!("\n\tERROR: Couldn't get terminal window size!\n");
+            println!("\n\tERROR: Can't get terminal window size!\n");
             panic!("getting terminal window size")
         },
     }
