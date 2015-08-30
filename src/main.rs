@@ -6,12 +6,15 @@ mod keyevents;
 mod sprites;
 
 use helpers::{FallArea, multiply};
-use keyevents::{set_raw_mode, read_keypress};
+use keyevents::*;
+use libc::c_uint;
 use sprites::*;
 use std::thread::sleep_ms;
 
 fn main() {
     let _raw = set_raw_mode();      // has the old termios attributes (which is restored on drop)
+    let step: c_uint = 50;
+
     let fall_area = FallArea::new(65, 35);
     let mut frame: Vec<String> = Vec::new();    // initial garbage vector to be used as the base frame
     let jumper = Jumper::new(fall_area);
@@ -33,10 +36,26 @@ fn main() {
     }
 
     loop {
-        sleep_ms(500);                   // testing at 2 fps
+        sleep_ms(step);                   // testing at 2 fps
         frame = jumper.draw(&frame);
         let cliff = Cliff::new(jumper);
         frame = cliff.draw(&frame);
+
+        match poll_keypress(step) {
+            Poll::Start => {
+                match read_keypress() {
+                    Key::Esc => {
+                        println!("\rGoodbye...\n\r");
+                        break
+                    },
+                    _ => {  }, // do nothing for now
+                }
+            },
+            Poll::Wait => {
+                // I'm not sure whether this is gonna be of use (since the obstacles are always moving up!)
+            },
+        }
+
         for line in &user_env_top {
             println!("\r{}{}", left_shift, line);
         }

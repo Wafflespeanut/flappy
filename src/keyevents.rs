@@ -1,4 +1,4 @@
-use libc::{c_int, c_uint, c_short, c_long, c_uchar, STDIN_FILENO};
+use libc::{c_int, c_uint, c_short, c_uchar, STDIN_FILENO};
 use std::cmp::Ordering;
 
 const NCHARS: usize = 32;
@@ -27,18 +27,18 @@ struct PollFD {
     revents: c_short,           // returned events
 }
 
-enum Poll {
+pub enum Poll {
     Start,
     Wait,
 }
 
-pub enum KeyPressed {
-    ArrowUp,
-    ArrowDown,
-    ArrowRight,
-    ArrowLeft,
-    Other,
+pub enum Key {
+    Up,
+    Down,
+    Right,
+    Left,
     Esc,
+    Other,
 }
 
 extern "C" {
@@ -47,9 +47,9 @@ extern "C" {
     fn tcsetattr(fd_num: c_int, optional_actions: c_int, termios_ptr: &mut Termios) -> c_int;
     fn cfmakeraw(termios_ptr: &mut Termios);
     // polling function (http://linux.die.net/man/2/poll)
-    fn poll(file_desc: &mut PollFD, num_file_desc: c_long, timeout: c_int) -> c_int;
+    fn poll(file_desc: &mut PollFD, num_file_desc: c_int, timeout_ms: c_uint) -> c_int;
     // reading function (http://linux.die.net/man/2/read)
-    fn read(fd_num: c_int, buffer: &mut usize, count: usize) -> isize;
+    fn read(fd_num: c_int, buffer: &mut c_uint, count: c_uint) -> c_int;
 }
 
 pub struct TermiosAttribs {     // wrapper struct for the C-like struct
@@ -63,18 +63,18 @@ impl Drop for TermiosAttribs {
 }
 
 pub fn set_raw_mode() -> TermiosAttribs {
-    unsafe {
-        let mut new_termios = Termios {     // stupid initial values for termios
-            c_iflag: 0,
-            c_oflag: 0,
-            c_cflag: 0,
-            c_lflag: 0,
-            c_line: 0,
-            c_cc: [0; NCHARS],
-            c_ispeed: 0,
-            c_ospeed: 0,
-        };
+    let mut new_termios = Termios {     // stupid initial values for termios
+        c_iflag: 0,
+        c_oflag: 0,
+        c_cflag: 0,
+        c_lflag: 0,
+        c_line: 0,
+        c_cc: [0; NCHARS],
+        c_ispeed: 0,
+        c_ospeed: 0,
+    };
 
+    unsafe {
         let old_termios = match tcgetattr(STDIN_FILENO, &mut new_termios) {     // try getting the old termios
             0 => TermiosAttribs { term: new_termios.clone() },  // put it into the wrapper
             _ => {
@@ -94,15 +94,15 @@ pub fn set_raw_mode() -> TermiosAttribs {
     }
 }
 
-fn poll_keypress(timeout: c_int) -> Poll {
-    unsafe {
-        let mut poll_fd = PollFD {
-            fd: STDIN_FILENO,
-            events: POLLIN,
-            revents: 0,     // this will be filled by the kernel with the events occurred
-        };
+pub fn poll_keypress(timeout_ms: c_uint) -> Poll {
+    let mut poll_fd = PollFD {
+        fd: STDIN_FILENO,
+        events: POLLIN,
+        revents: 0,     // will be filled by the kernel denoting the events occurred
+    };
 
-        match poll(&mut poll_fd, 1, timeout).cmp(&0) {
+    unsafe {
+        match poll(&mut poll_fd, 1, timeout_ms).cmp(&0) {
             Ordering::Greater => Poll::Start,
             Ordering::Equal => Poll::Wait,
             Ordering::Less => {
@@ -113,14 +113,21 @@ fn poll_keypress(timeout: c_int) -> Poll {
     }
 }
 
-pub fn read_keypress() {
+pub fn read_keypress() -> Key {
+    let mut buffer: u32 = 0;
     unsafe {
-        let mut buffer: usize = 0;
         if read(STDIN_FILENO, &mut buffer, 8) < 0 {
             println!("\n\tERROR: Can't read the input!\n");
             panic!("reading input")
         } else {
-            println!("\r{}", buffer);     // for now, this just prints the captured keycode
+            match buffer {      // the values were found by initially printing `buffer`
+                27 => Key::Esc,
+                4283163 => Key::Up,
+                4348699 => Key::Down,
+                4414235 => Key::Right,
+                4479771 => Key::Left,
+                _ => Key::Other,
+            }
         }
     }
 }

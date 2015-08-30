@@ -65,9 +65,9 @@ impl Cliff {
         }
     }
 
-    pub fn shift(&self, frame: &Vec<String>) -> Vec<String> {       // will be used for moving the cliff upwards
-        Vec::new()
-    }
+    // pub fn shift(&self, frame: &Vec<String>) -> Vec<String> {       // will be used for moving the cliff upwards
+    //     Vec::new()
+    // }
 }
 
 impl Sprite for Cliff {
