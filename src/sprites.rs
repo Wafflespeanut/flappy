@@ -3,6 +3,7 @@ use rand::{thread_rng, Rng};
 
 pub trait Sprite {      // should be implemented by all the objects in the game
     fn draw(&self, frame: &Vec<String>) -> Vec<String>;
+    fn shift(&self, pos: usize, frame: &Vec<String>) -> Vec<String>;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -30,6 +31,10 @@ impl Sprite for Jumper {
                     .collect::<Vec<String>>();
         base_draw(self.area, body, x_pos)
     }
+
+    fn shift(&self, x_pos: usize, frame: &Vec<String>) -> Vec<String> {     // for moving the jumper sidewise
+        Vec::new()      // for now
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -41,7 +46,7 @@ pub struct Cliff {
 }
 
 impl Cliff {
-    pub fn new(jumper: Jumper) -> Cliff {       // jumper's position is necessary to throw cliffs at him!
+    pub fn new(jumper: Jumper) -> Cliff {   // jumper's position is necessary to throw cliffs at him!
         let mut rng = thread_rng();
         let full_width = jumper.area.width.0;
         let half_width = full_width / 2;
@@ -61,13 +66,9 @@ impl Cliff {
             area: jumper.area,
             x_pos: x_pos,
             y_pos: jumper.area.height.0 - 4,    // initial position of any cliff is at the bottom
-            size: size,         // this is just the length, as the cliff's height is a constant "4" (for now)
+            size: size,     // this is just the length, as the cliff's height is a constant "4" (for now)
         }
     }
-
-    // pub fn shift(&self, frame: &Vec<String>) -> Vec<String> {       // will be used for moving the cliff upwards
-    //     Vec::new()
-    // }
 }
 
 impl Sprite for Cliff {
@@ -83,5 +84,45 @@ impl Sprite for Cliff {
             }
         }).collect();
         merge_draw(self.area, &frame, body, self.x_pos, self.y_pos)
+    }
+
+    fn shift(&self, y_pos: usize, frame: &Vec<String>) -> Vec<String> {     // for moving the cliff upwards
+        Vec::new()      // for now
+    }
+}
+
+pub struct Game {           // struct to hold the global attributes of a new game
+    pub jumper: Jumper,
+    pub side: String,
+    pub top: Vec<String>,
+    pub bottom: Vec<String>,
+}
+
+impl Game {
+    pub fn new(width: usize, height: usize) -> Game {       // let the game begin!
+        let fall_area = FallArea::new(width, height);
+
+        let top_indent = fall_area.height.1 / 2;
+        let bottom_indent = fall_area.height.1 - top_indent;
+        let left_shift = multiply(" ", fall_area.width.1 / 2);
+        let box_width = fall_area.width.0;
+
+        // draw the dashed box for the frames to be drawn inside
+        let mut user_env_top = (0..top_indent - 1).map(|_| {        // lid of the box
+            multiply(" ", box_width)
+        }).collect::<Vec<String>>();
+        let dashes = String::from("-") + &multiply("-", box_width) + "---";
+        user_env_top.push(dashes.clone());
+        let mut user_env_bottom = vec![dashes];        // base of the box
+        for _ in 0..bottom_indent - 1 {
+            user_env_bottom.push(multiply(" ", box_width));
+        }
+
+        Game {
+            jumper: Jumper::new(fall_area),
+            side: left_shift,
+            top: user_env_top,
+            bottom: user_env_bottom,
+        }
     }
 }

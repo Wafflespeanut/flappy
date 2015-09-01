@@ -5,46 +5,28 @@ mod helpers;
 mod keyevents;
 mod sprites;
 
-use helpers::{FallArea, multiply};
 use keyevents::*;
 use libc::c_uint;
 use sprites::*;
-use std::thread::sleep_ms;
 
 fn main() {
-    let _raw = set_raw_mode();      // has the old termios attributes (which is restored on drop)
-    let step: c_uint = 50;
+    let _raw = set_raw_mode();  // has the old termios attributes (which will be restored on drop)
+    let poll_timeout_ms: c_uint = 1000;    // wait for the given time to capture the input
+    let mut frame = Vec::new();    // initial vector to be used as the base frame
 
-    let fall_area = FallArea::new(65, 35);
-    let mut frame: Vec<String> = Vec::new();    // initial garbage vector to be used as the base frame
-    let jumper = Jumper::new(fall_area);
-
-    let top_indent = fall_area.height.1 / 2;
-    let bottom_indent = fall_area.height.1 - top_indent;
-    let left_shift = multiply(" ", fall_area.width.1 / 2);
-    let box_width = fall_area.width.0;
-
-    // draw the dashed box for the frames to be drawn inside
-    let mut user_env_top = (0..top_indent - 1).map(|_| {        // say, box's lid
-        multiply(" ", box_width)
-    }).collect::<Vec<String>>();
-    let dashes = String::from("-") + &multiply("-", box_width) + "---";
-    user_env_top.push(dashes.clone());
-    let mut user_env_bottom: Vec<String> = vec![dashes];        // say, box's base
-    for _ in 0..bottom_indent - 1 {
-        user_env_bottom.push(multiply(" ", box_width));
-    }
+    let game = Game::new(65, 35);
+    let jumper = game.jumper;
+    let (left_indent, top_indent, bottom_indent) = (game.side, game.top, game.bottom);
 
     loop {
-        sleep_ms(step);                   // testing at 2 fps
         frame = jumper.draw(&frame);
         let cliff = Cliff::new(jumper);
         frame = cliff.draw(&frame);
 
-        match poll_keypress(step) {
+        match poll_keypress(poll_timeout_ms) {      // waits a second for input
             Poll::Start => {
-                match read_keypress() {
-                    Key::Esc => {
+                match read_keypress() {         // proceeds immediately on input
+                    Key::Quit => {
                         println!("\rGoodbye...\n\r");
                         break
                     },
@@ -52,18 +34,18 @@ fn main() {
                 }
             },
             Poll::Wait => {
-                // I'm not sure whether this is gonna be of use (since the obstacles are always moving up!)
+                // won't be of use (for now)
             },
         }
 
-        for line in &user_env_top {
-            println!("\r{}{}", left_shift, line);
+        for line in &top_indent {
+            println!("\r{}{}", left_indent, line);
         }
         for line in &frame {
-            println!("\r{}| {} |", left_shift, line);       // contents of the box (gameplay)
+            println!("\r{}| {} |", left_indent, line);       // contents of the box (gameplay)
         }
-        for line in &user_env_bottom {
-            println!("\r{}{}", left_shift, line);
+        for line in &bottom_indent {
+            println!("\r{}{}", left_indent, line);
         }
     }
 }

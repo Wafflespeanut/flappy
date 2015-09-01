@@ -24,7 +24,7 @@ fn window_size() -> (usize, usize) {            // get the current size of the t
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct FallArea {               // necessary type which describes where the game objects should be drawn
+pub struct FallArea {   // necessary type which describes where the game objects should be drawn
     pub width: (usize, usize),      // (width restricted for the game, remaining width)
     pub height: (usize, usize),     // (height restricted for the game, remaining height)
 }
@@ -51,7 +51,7 @@ pub fn multiply(ch: &str, length: usize) -> String {    // I don't wanna write t
     repeat(ch).take(length).collect()
 }
 
-// Always used by Jumper and it's the base frame over which the subsequent frames are drawn
+// Always used by Jumper, which is also the base frame over which the subsequent frames are drawn
 pub fn base_draw(area: FallArea, body: Vec<String>, x_pos: usize) -> Vec<String> {
     let empty = multiply(" ", area.width.0);
     let (body_width, body_height) = (body[0].len(), body.len());

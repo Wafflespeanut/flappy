@@ -1,9 +1,9 @@
 use libc::{c_int, c_uint, c_short, c_uchar, STDIN_FILENO};
 use std::cmp::Ordering;
 
-const NCHARS: usize = 32;
-const POLLIN: i16 = 1;
-const TCSANOW: i32 = 0;
+const NCHARS: usize = 32;   // ASCII chars 0-31
+const POLLIN: i16 = 1;      // represents the event for polling input
+const TCSANOW: i32 = 0;     // for setting the termios attributes immediately
 
 // Implementation based on <termios.h> (I did peek into a lot of stuff for getting the structure)
 // NOTE: All the fields are needed for proper communication with the foreign library!
@@ -27,20 +27,6 @@ struct PollFD {
     revents: c_short,           // returned events
 }
 
-pub enum Poll {
-    Start,
-    Wait,
-}
-
-pub enum Key {
-    Up,
-    Down,
-    Right,
-    Left,
-    Esc,
-    Other,
-}
-
 extern "C" {
     // termios-related functions (http://linux.die.net/man/3/termios)
     fn tcgetattr(fd_num: c_int, termios_ptr: &mut Termios) -> c_int;
@@ -58,12 +44,12 @@ pub struct TermiosAttribs {     // wrapper struct for the C-like struct
 
 impl Drop for TermiosAttribs {
     fn drop(&mut self) {    // override `drop` to set back the old termios attributes on drop
-        let _ = unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &mut self.term) };
+        unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &mut self.term) };
     }
 }
 
 pub fn set_raw_mode() -> TermiosAttribs {
-    let mut new_termios = Termios {     // stupid initial values for termios
+    let mut new_termios = Termios {     // some initial values
         c_iflag: 0,
         c_oflag: 0,
         c_cflag: 0,
@@ -75,7 +61,7 @@ pub fn set_raw_mode() -> TermiosAttribs {
     };
 
     unsafe {
-        let old_termios = match tcgetattr(STDIN_FILENO, &mut new_termios) {     // try getting the old termios
+        let old_termios = match tcgetattr(STDIN_FILENO, &mut new_termios) { // try getting the old termios
             0 => TermiosAttribs { term: new_termios.clone() },  // put it into the wrapper
             _ => {
                 println!("\n\tERROR: Can't get terminal attributes!\n");
@@ -83,9 +69,9 @@ pub fn set_raw_mode() -> TermiosAttribs {
             },
         };
 
-        cfmakeraw(&mut new_termios);        // get the attributes for raw termios into our termios
-        match tcsetattr(STDIN_FILENO, TCSANOW, &mut new_termios) {    // try setting the newly obtained attributes
-            0 => old_termios,       // Yay! switched to raw mode! Now, return the wrapper (for later drop)
+        cfmakeraw(&mut new_termios);    // get the attributes for raw termios into our termios
+        match tcsetattr(STDIN_FILENO, TCSANOW, &mut new_termios) {  // try setting the newly obtained attributes
+            0 => old_termios,   // Yay! switched to raw mode! Now, return the wrapper (for later drop)
             _ => {
                 println!("\n\tERROR: Can't switch to raw mode!\n");
                 panic!("switching to raw mode")
@@ -94,23 +80,37 @@ pub fn set_raw_mode() -> TermiosAttribs {
     }
 }
 
+pub enum Poll {     // we need polling to capture the keystrokes in specific time intervals
+    Start,
+    Wait,
+}
+
 pub fn poll_keypress(timeout_ms: c_uint) -> Poll {
     let mut poll_fd = PollFD {
-        fd: STDIN_FILENO,
+        fd: STDIN_FILENO,   // since we're capturing the standard input
         events: POLLIN,
         revents: 0,     // will be filled by the kernel denoting the events occurred
     };
 
     unsafe {
         match poll(&mut poll_fd, 1, timeout_ms).cmp(&0) {
-            Ordering::Greater => Poll::Start,
-            Ordering::Equal => Poll::Wait,
+            Ordering::Greater => Poll::Start,   // begin blocking to capture the keystroke
+            Ordering::Equal => Poll::Wait,      // indicates that the poll has timed out
             Ordering::Less => {
                 println!("\n\tERROR: Can't poll the input!\n");
                 panic!("polling input")
             },
         }
     }
+}
+
+pub enum Key {      // We'll be needing only these keys for the game
+    Up,
+    Down,
+    Right,
+    Left,
+    Quit,
+    Other,
 }
 
 pub fn read_keypress() -> Key {
@@ -120,14 +120,14 @@ pub fn read_keypress() -> Key {
             println!("\n\tERROR: Can't read the input!\n");
             panic!("reading input")
         } else {
-            match buffer {      // the values were found by initially printing `buffer`
-                27 => Key::Esc,
+            match buffer {
+                3 | 27 => Key::Quit,    // Ctrl-C & Esc
                 4283163 => Key::Up,
                 4348699 => Key::Down,
                 4414235 => Key::Right,
                 4479771 => Key::Left,
                 _ => Key::Other,
             }
-        }
+        }       // the keycodes were found initially by pressing keys and printing `buffer`
     }
 }
