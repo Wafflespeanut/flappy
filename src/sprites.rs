@@ -3,13 +3,14 @@ use rand::{thread_rng, Rng};
 
 pub trait Sprite {      // should be implemented by all the objects in the game
     fn draw(&self, frame: &Vec<String>) -> Vec<String>;
-    fn shift(&self, pos: usize, frame: &Vec<String>) -> Vec<String>;
+    fn shift(&mut self, pos: usize);
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct Jumper {
     pub area: FallArea,
     pub x_pos: usize,       // for now, he's got only one DOF
+    pub body: Vec<String>,
 }
 
 impl Jumper {
@@ -17,36 +18,46 @@ impl Jumper {
         Jumper {
             area: fall_area,
             x_pos: (fall_area.width.0 / 2),     // initial position of the jumper
+            body: ["  \\\\ //  ",
+                   "===[O]==="]    // assume that it's the front view of a falling jumper
+                   .iter()
+                   .map(|&string| string.to_owned())
+                   .collect::<Vec<String>>(),
         }
     }
 }
 
 impl Sprite for Jumper {
     fn draw(&self, _: &Vec<String>) -> Vec<String> {
-        let x_pos = (self.x_pos - 1) % self.area.width.0;   // limit the jumper to the screen's width
-        let body = ["  \\\\ //  ",
-                    "===[O]==="]    // assume that it's the front view of a falling jumper
-                    .iter()
-                    .map(|&string| string.to_owned())
-                    .collect::<Vec<String>>();
-        base_draw(self.area, body, x_pos)
+        let fall_area = self.area;
+        let empty = multiply(" ", fall_area.width.0);
+        let (body_width, body_height) = (self.body[0].len(), self.body.len());
+        (0..fall_area.height.0).map(|i| {
+            if i < body_height {
+                let start = multiply(" ", self.x_pos);
+                let end = multiply(" ", fall_area.width.0 - (self.x_pos + body_width));
+                String::from(start) + &self.body[i] + &end
+            } else {
+                empty.clone()
+            }
+        }).collect()
     }
 
-    fn shift(&self, x_pos: usize, frame: &Vec<String>) -> Vec<String> {     // for moving the jumper sidewise
-        Vec::new()      // for now
+    fn shift(&mut self, x_pos: usize) {
+
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct Cliff {
-    area: FallArea,
+    area: FallArea, // FallArea is always required by the sprites (to know about the dimensions)
     x_pos: usize,   // used for initial random positioning of the cliff (restricted to window's width)
     y_pos: usize,   // though it has only one DOF, the cliffs should move upward over consecutive frames
-    size: usize,    // size is random and restricted to half of the window's width
+    body: Vec<String>,  // size of the cliff is random and restricted to half of the window's width (and a height of "4")
 }
 
 impl Cliff {
-    pub fn new(jumper: Jumper) -> Cliff {   // jumper's position is necessary to throw cliffs at him!
+    pub fn new(jumper: &Jumper) -> Cliff {   // jumper's position is necessary to throw cliffs at him!
         let mut rng = thread_rng();
         let full_width = jumper.area.width.0;
         let half_width = full_width / 2;
@@ -66,28 +77,40 @@ impl Cliff {
             area: jumper.area,
             x_pos: x_pos,
             y_pos: jumper.area.height.0 - 4,    // initial position of any cliff is at the bottom
-            size: size,     // this is just the length, as the cliff's height is a constant "4" (for now)
+            body: (1..5).map(|part| {
+                match part {                                                // sample cliff of size "2"
+                    1 => String::from(" ") + &multiply("_", size) + " ",    //      __
+                    2 => String::from("/") + &multiply("O", size) + "\\",   //     /OO\
+                    3 => String::from("\\") + &multiply("O", size) + "/",   //     \OO/
+                    4 => String::from(" ") + &multiply("-", size) + " ",    //      --
+                    _ => panic!("unexpected value for cliff"),
+                }
+            }).collect()
         }
     }
 }
 
 impl Sprite for Cliff {
     fn draw(&self, frame: &Vec<String>) -> Vec<String> {
-        let size = self.size;
-        let body: Vec<String> = (1..5).map(|part| {
-            match part {                                                // Cliff of size "2"
-                1 => String::from(" ") + &multiply("_", size) + " ",    //      __
-                2 => String::from("/") + &multiply("O", size) + "\\",   //     /OO\
-                3 => String::from("\\") + &multiply("O", size) + "/",   //     \OO/
-                4 => String::from(" ") + &multiply("-", size) + " ",    //      --
-                _ => panic!("Unexpected value!"),
+        let fall_area = self.area;
+        let (x_pos, y_pos) = (self.x_pos, self.y_pos);
+        let empty = multiply(" ", fall_area.width.0);
+        let (body_width, body_height) = (self.body[0].len(), self.body.len());
+        (0..fall_area.height.0).map(|i| {
+            if i < y_pos {
+                frame[i].clone()
+            } else if i < (y_pos + body_height) {
+                let line = &frame[i];
+                let (start, end) = (&line[..x_pos], &line[x_pos + body_width..]);
+                String::from(start) + &self.body[i - y_pos] + end
+            } else {
+                empty.clone()
             }
-        }).collect();
-        merge_draw(self.area, &frame, body, self.x_pos, self.y_pos)
+        }).collect()
     }
 
-    fn shift(&self, y_pos: usize, frame: &Vec<String>) -> Vec<String> {     // for moving the cliff upwards
-        Vec::new()      // for now
+    fn shift(&mut self, y_pos: usize) {
+
     }
 }
 

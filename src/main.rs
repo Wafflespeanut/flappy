@@ -15,12 +15,12 @@ fn main() {
     let mut frame = Vec::new();    // initial vector to be used as the base frame
 
     let game = Game::new(65, 35);
-    let jumper = game.jumper;
+    let mut jumper = game.jumper;
     let (left_indent, top_indent, bottom_indent) = (game.side, game.top, game.bottom);
 
     loop {
         frame = jumper.draw(&frame);
-        let cliff = Cliff::new(jumper);
+        let cliff = Cliff::new(&jumper);
         frame = cliff.draw(&frame);
 
         match poll_keypress(poll_timeout_ms) {      // waits a second for input

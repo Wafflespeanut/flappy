@@ -17,7 +17,7 @@ fn window_size() -> (usize, usize) {            // get the current size of the t
     match val {
         0 => (wsize.row as usize, wsize.col as usize),
         _ => {
-            println!("\n\tERROR: Can't get terminal window size!\n");
+            println!("\n\tERROR: Can't get terminal window size!\n\r");
             panic!("getting terminal window size")
         },
     }
@@ -33,10 +33,10 @@ impl FallArea {
     pub fn new(width: usize, height: usize) -> FallArea {
         let (rows, cols) = window_size();
         if (width < 50) | (height < 30) | (rows < 30) | (cols < 50) {   // for a smoother gameplay
-            println!("\n\tERROR: Minimum window size is 30 rows and 50 columns!\n");
+            println!("\n\tERROR: Minimum window size is 30 rows and 50 columns!\n\r");
             panic!("setting window size")
         } else if (cols - 2 < width) | (rows - 2 < height) {    // the extra "2" is for drawing the dashed box
-            println!("\n\tERROR: Requested window size is less than what's available!\n");
+            println!("\n\tERROR: Requested window size is less than what's available!\n\r");
             panic!("setting window size")
         } else {
             FallArea {
@@ -49,36 +49,4 @@ impl FallArea {
 
 pub fn multiply(ch: &str, length: usize) -> String {    // I don't wanna write this every time! (DRY)
     repeat(ch).take(length).collect()
-}
-
-// Always used by Jumper, which is also the base frame over which the subsequent frames are drawn
-pub fn base_draw(area: FallArea, body: Vec<String>, x_pos: usize) -> Vec<String> {
-    let empty = multiply(" ", area.width.0);
-    let (body_width, body_height) = (body[0].len(), body.len());
-    (0..area.height.0).map(|i| {
-        if i < body_height {
-            let start = multiply(" ", x_pos);
-            let end = multiply(" ", area.width.0 - (x_pos + body_width));
-            String::from(start) + &body[i] + &end
-        } else {
-            empty.clone()
-        }
-    }).collect()
-}
-
-// Always used by the obstacles, and they need y-position because they're always gonna move upwards
-pub fn merge_draw(area: FallArea, frame: &Vec<String>, body: Vec<String>, x_pos: usize, y_pos: usize) -> Vec<String> {
-    let empty = multiply(" ", area.width.0);
-    let (body_width, body_height) = (body[0].len(), body.len());
-    (0..area.height.0).map(|i| {
-        if i < y_pos {
-            frame[i].clone()
-        } else if i < (y_pos + body_height) {
-            let line = &frame[i];
-            let (start, end) = (&line[..x_pos], &line[x_pos + body_width..]);
-            String::from(start) + &body[i - y_pos] + end
-        } else {
-            empty.clone()
-        }
-    }).collect()
 }

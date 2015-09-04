@@ -97,7 +97,7 @@ pub fn poll_keypress(timeout_ms: c_uint) -> Poll {
             Ordering::Greater => Poll::Start,   // begin blocking to capture the keystroke
             Ordering::Equal => Poll::Wait,      // indicates that the poll has timed out
             Ordering::Less => {
-                println!("\n\tERROR: Can't poll the input!\n");
+                println!("\n\tERROR: Can't poll the input!\n\r");
                 panic!("polling input")
             },
         }
@@ -117,7 +117,7 @@ pub fn read_keypress() -> Key {
     let mut buffer: u32 = 0;
     unsafe {
         if read(STDIN_FILENO, &mut buffer, 8) < 0 {
-            println!("\n\tERROR: Can't read the input!\n");
+            println!("\n\tERROR: Can't read the input!\n\r");
             panic!("reading input")
         } else {
             match buffer {
