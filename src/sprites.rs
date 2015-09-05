@@ -1,16 +1,17 @@
 use helpers::*;
+use keyevents::Key;
 use rand::{thread_rng, Rng};
 
 pub trait Sprite {      // should be implemented by all the objects in the game
-    fn draw(&self, frame: &Vec<String>) -> Vec<String>;
-    fn shift(&mut self, pos: usize);
+    fn draw(&self, frame: Option<&Vec<String>>) -> Vec<String>;
+    fn shift(&mut self, pos: usize, key: Option<Key>);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Jumper {
-    pub area: FallArea,
-    pub x_pos: usize,       // for now, he's got only one DOF
-    pub body: Vec<String>,
+    area: FallArea,
+    x_pos: usize,       // for now, he's got only one DOF
+    body: Vec<String>,
 }
 
 impl Jumper {
@@ -28,7 +29,7 @@ impl Jumper {
 }
 
 impl Sprite for Jumper {
-    fn draw(&self, _: &Vec<String>) -> Vec<String> {
+    fn draw(&self, _frame: Option<&Vec<String>>) -> Vec<String> {   // basic draw doesn't need a frame
         let fall_area = self.area;
         let empty = multiply(" ", fall_area.width.0);
         let (body_width, body_height) = (self.body[0].len(), self.body.len());
@@ -43,12 +44,20 @@ impl Sprite for Jumper {
         }).collect()
     }
 
-    fn shift(&mut self, x_pos: usize) {
-
+    fn shift(&mut self, x_pos: usize, key: Option<Key>) {
+        match key {
+            Some(Key::Right) if (self.x_pos + x_pos + self.body[0].len()) < self.area.width.0 => {
+                self.x_pos += x_pos;
+            },
+            Some(Key::Left) if self.x_pos as isize - x_pos as isize > 0 => {
+                self.x_pos -= x_pos;
+            },
+            _ => {},
+        }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Cliff {
     area: FallArea, // FallArea is always required by the sprites (to know about the dimensions)
     x_pos: usize,   // used for initial random positioning of the cliff (restricted to window's width)
@@ -91,7 +100,15 @@ impl Cliff {
 }
 
 impl Sprite for Cliff {
-    fn draw(&self, frame: &Vec<String>) -> Vec<String> {
+    fn draw(&self, frame: Option<&Vec<String>>) -> Vec<String> {
+        let frame = match frame {
+            Some(vec) => vec,
+            None => {
+                println!("\n\tERROR: A frame should be supplied for generating a cliff!\n\r");
+                panic!("drawing cliff")
+            },
+        };
+
         let fall_area = self.area;
         let (x_pos, y_pos) = (self.x_pos, self.y_pos);
         let empty = multiply(" ", fall_area.width.0);
@@ -109,8 +126,8 @@ impl Sprite for Cliff {
         }).collect()
     }
 
-    fn shift(&mut self, y_pos: usize) {
-
+    fn shift(&mut self, y_pos: usize, _key: Option<Key>) {
+        self.y_pos += y_pos;
     }
 }
 

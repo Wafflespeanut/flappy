@@ -23,7 +23,7 @@ fn window_size() -> (usize, usize) {            // get the current size of the t
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct FallArea {   // necessary type which describes where the game objects should be drawn
     pub width: (usize, usize),      // (width restricted for the game, remaining width)
     pub height: (usize, usize),     // (height restricted for the game, remaining height)
