@@ -49,10 +49,10 @@ impl Sprite for Jumper {
             Some(Key::Right) if (self.x_pos + x_pos + self.body[0].len()) < self.area.width.0 => {
                 self.x_pos += x_pos;
             },
-            Some(Key::Left) if self.x_pos as isize - x_pos as isize > 0 => {
+            Some(Key::Left) if (self.x_pos as isize - x_pos as isize) > 0 => {
                 self.x_pos -= x_pos;
             },
-            _ => {},
+            _ => (),
         }
     }
 }
@@ -70,7 +70,7 @@ impl Cliff {
         let mut rng = thread_rng();
         let full_width = jumper.area.width.0;
         let half_width = full_width / 2;
-        let size: usize = rng.gen_range(1, half_width);
+        let size: usize = rng.gen_range(3, half_width);
 
         let left_side = {
             let jumper_side = jumper.x_pos.le(&half_width);
@@ -127,7 +127,7 @@ impl Sprite for Cliff {
     }
 
     fn shift(&mut self, y_pos: usize, _key: Option<Key>) {
-        self.y_pos += y_pos;
+        self.y_pos -= y_pos;
     }
 }
 
@@ -151,7 +151,7 @@ impl Game {
         let mut user_env_top = (0..top_indent - 1).map(|_| {        // lid of the box
             multiply(" ", box_width)
         }).collect::<Vec<String>>();
-        let dashes = String::from("-") + &multiply("-", box_width) + "---";
+        let dashes = multiply("-", box_width) + "--";
         user_env_top.push(dashes.clone());
         let mut user_env_bottom = vec![dashes];        // base of the box
         for _ in 0..bottom_indent - 1 {

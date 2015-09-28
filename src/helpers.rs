@@ -4,6 +4,9 @@ use std::iter::repeat;
 
 // NOTE: system-dependent constant (not available in libc yet, so you'd have to get it from your system)
 const TIOCGWINSZ: c_int = 21523;
+// minimum width & height (for a smoother gameplay)
+const WIN_COLS: usize = 40;
+const WIN_ROWS: usize = 30;
 
 #[repr(C)]
 struct WindowSize {
@@ -32,8 +35,8 @@ pub struct FallArea {   // necessary type which describes where the game objects
 impl FallArea {
     pub fn new(width: usize, height: usize) -> FallArea {
         let (rows, cols) = window_size();
-        if (width < 50) | (height < 30) | (rows < 30) | (cols < 50) {   // for a smoother gameplay
-            println!("\n\tERROR: Minimum window size is 30 rows and 50 columns!\n\r");
+        if (width < WIN_COLS) | (height < WIN_ROWS) | (rows < WIN_ROWS) | (cols < WIN_COLS) {
+            println!("\n\tERROR: Minimum window size is 30 rows and 40 columns!\n\r");
             panic!("setting window size")
         } else if (cols - 2 < width) | (rows - 2 < height) {    // the extra "2" is for drawing the dashed box
             println!("\n\tERROR: Requested window size is less than what's available!\n\r");
