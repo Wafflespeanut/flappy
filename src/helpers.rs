@@ -14,15 +14,12 @@ struct WindowSize {
     col: c_ushort,
 }
 
-fn window_size() -> (usize, usize) {            // get the current size of the terminal window
+fn window_size <'a>() -> Result<(usize, usize), &'a str> {      // get the current size of the terminal window
     let wsize = WindowSize { row: 0, col: 0 };
     let val = unsafe { ioctl(STDOUT_FILENO, TIOCGWINSZ, &wsize) };
     match val {
-        0 => (wsize.row as usize, wsize.col as usize),
-        _ => {
-            println!("\n\tERROR: Can't get terminal window size!\n\r");
-            panic!("getting terminal window size")
-        },
+        0 => Ok((wsize.row as usize, wsize.col as usize)),
+        _ => Err("Can't get terminal window size!"),
     }
 }
 
@@ -33,23 +30,30 @@ pub struct FallArea {   // necessary type which describes where the game objects
 }
 
 impl FallArea {
-    pub fn new(width: usize, height: usize) -> FallArea {
-        let (rows, cols) = window_size();
-        if (width < WIN_COLS) | (height < WIN_ROWS) | (rows < WIN_ROWS) | (cols < WIN_COLS) {
-            println!("\n\tERROR: Minimum window size is 30 rows and 40 columns!\n\r");
-            panic!("setting window size")
-        } else if (cols - 2 < width) | (rows - 2 < height) {    // the extra "2" is for drawing the dashed box
-            println!("\n\tERROR: Requested window size is less than what's available!\n\r");
-            panic!("setting window size")
-        } else {
-            FallArea {
-                width: (width, cols - width),
-                height: (height, rows - height),
+    pub fn new <'a>(width: usize, height: usize) -> Result<FallArea, &'a str> {
+        let size_result = window_size();
+        if let Ok((rows, cols)) = size_result {
+            if (width < WIN_COLS) | (height < WIN_ROWS) | (rows < WIN_ROWS) | (cols < WIN_COLS) {
+                return Err("Minimum window size is 30 rows and 40 columns!")
+            } else if (cols - 2 < width) | (rows - 2 < height) {
+                // the extra "2" is for drawing the dashed box
+                return Err("Requested window size is less than what's available!")
+            } else {
+                return Ok(FallArea {
+                    width: (width, cols - width),
+                    height: (height, rows - height),
+                })
             }
+        } else {
+            Err(size_result.unwrap_err())
         }
     }
 }
 
 pub fn multiply(ch: &str, length: usize) -> String {    // I don't wanna write this every time! (DRY)
     repeat(ch).take(length).collect()
+}
+
+pub fn print_error(err: &str) {
+    print!("\r\n\t{}", err);
 }
