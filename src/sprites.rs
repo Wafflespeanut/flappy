@@ -3,7 +3,7 @@ use keyevents::Key;
 use rand::{thread_rng, Rng};
 
 pub trait Sprite {      // should be implemented by all the objects in the game
-    fn draw(&self, frame: Option<&Vec<String>>) -> Vec<String>;
+    fn draw(&self, frame: Option<&[String]>) -> Vec<String>;
     fn shift(&mut self, pos: usize, key: Option<Key>);
 }
 
@@ -29,7 +29,7 @@ impl Jumper {
 }
 
 impl Sprite for Jumper {
-    fn draw(&self, _frame: Option<&Vec<String>>) -> Vec<String> {   // basic draw doesn't need a frame
+    fn draw(&self, _frame: Option<&[String]>) -> Vec<String> {   // basic draw doesn't need a frame
         let fall_area = self.area;
         let empty = multiply(" ", fall_area.width.0);
         let (body_width, body_height) = (self.body[0].len(), self.body.len());
@@ -87,20 +87,24 @@ impl Cliff {
             x_pos: x_pos,
             y_pos: jumper.area.height.0 - 4,    // initial position of any cliff is at the bottom
             body: (1..5).map(|part| {
-                match part {                                                // sample cliff of size "2"
-                    1 => String::from(" ") + &multiply("_", size) + " ",    //      __
-                    2 => String::from("/") + &multiply("O", size) + "\\",   //     /OO\
-                    3 => String::from("\\") + &multiply("O", size) + "/",   //     \OO/
-                    4 => String::from(" ") + &multiply("-", size) + " ",    //      --
+                match part {                                             // sample cliff of size "2"
+                    1 => " ".to_owned() + &multiply("_", size) + " ",    //      __
+                    2 => "/".to_owned() + &multiply("O", size) + "\\",   //     /OO\
+                    3 => "\\".to_owned() + &multiply("O", size) + "/",   //     \OO/
+                    4 => " ".to_owned() + &multiply("-", size) + " ",    //      --
                     _ => panic!("unexpected value for cliff"),
                 }
             }).collect()
         }
     }
+
+    pub fn erase_body(&self) -> bool {
+        self.body.len() == 1
+    }
 }
 
 impl Sprite for Cliff {
-    fn draw(&self, frame: Option<&Vec<String>>) -> Vec<String> {
+    fn draw(&self, frame: Option<&[String]>) -> Vec<String> {
         let frame = match frame {
             Some(vec) => vec,
             None => {
@@ -127,15 +131,20 @@ impl Sprite for Cliff {
     }
 
     fn shift(&mut self, y_pos: usize, _key: Option<Key>) {
-        self.y_pos -= y_pos;
+        let diff = self.y_pos as isize - y_pos as isize;
+        if diff >= 0 {
+            self.y_pos -= y_pos;
+        } else {
+            self.body = self.body[1..].to_vec();
+        }
     }
 }
 
 pub struct Game {           // struct to hold the global attributes of a new game
     pub jumper: Jumper,
     pub side: String,
-    pub top: Vec<String>,
-    pub bottom: Vec<String>,
+    pub top: String,
+    pub bottom: String,
 }
 
 impl Game {
@@ -144,23 +153,18 @@ impl Game {
 
         let top_indent = fall_area.height.1 / 2;
         let bottom_indent = fall_area.height.1 - top_indent;
-        let left_shift = multiply(" ", fall_area.width.1 / 2);
         let box_width = fall_area.width.0;
+        let left_indent = fall_area.width.1 / 2;
 
         // draw the dashed box for the frames to be drawn inside
-        let mut user_env_top = (0..top_indent - 1).map(|_| {        // lid of the box
-            multiply(" ", box_width)
-        }).collect::<Vec<String>>();
-        let dashes = multiply("-", box_width) + "--";
-        user_env_top.push(dashes.clone());
-        let mut user_env_bottom = vec![dashes];        // base of the box
-        for _ in 0..bottom_indent - 1 {
-            user_env_bottom.push(multiply(" ", box_width));
-        }
+        let dashes = multiply(" ", left_indent) + &multiply("-", box_width) + "--";
+        // base & lid of the box
+        let user_env_top = multiply("\r\n", top_indent - 1) + &dashes;
+        let user_env_bottom = dashes + &multiply("\r\n", bottom_indent - 1);
 
         Game {
             jumper: Jumper::new(fall_area),
-            side: left_shift,
+            side: multiply(" ", left_indent),
             top: user_env_top,
             bottom: user_env_bottom,
         }

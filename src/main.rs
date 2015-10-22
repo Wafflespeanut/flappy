@@ -15,8 +15,8 @@ fn main() {
     let _raw = set_raw_mode();  // has the old termios attributes (which will be restored on drop)
     let mut frame: Vec<String>;
 
-    let initial_timeout_ms: c_uint = 100;  // wait for the given time to capture the input
-    let mut poll_timeout_ms: c_uint = initial_timeout_ms;
+    let initial_timeout_ms: c_uint = 200;
+    let mut poll_timeout_ms = initial_timeout_ms;
     let mut time_since_last_ns: u64 = 0;
 
     let game = Game::new(50, 30);
@@ -26,22 +26,22 @@ fn main() {
 
     loop {
         let start_time = precise_time_ns();
-
-        match poll_keypress(poll_timeout_ms) {
+        match poll_keypress(poll_timeout_ms) {      // wait for the given time to capture the input
             Poll::Start => {
                 let key = read_keypress();
-                cliff.shift(1, None);
                 match key {         // proceeds immediately on input
                     Key::Quit => {
                         println!("\rGoodbye...\n\r");
                         break
                     },
-                    Key::Right | Key::Left => {
-                        jumper.shift(3, Some(key));
+                    _ => {
                         time_since_last_ns += precise_time_ns() - start_time;
-                        poll_timeout_ms = (time_since_last_ns / 1000000) as c_uint;
+                        poll_timeout_ms = initial_timeout_ms - ((time_since_last_ns / 1000000) as c_uint);
+                        match key {
+                            Key::Right | Key::Left => jumper.shift(3, Some(key)),
+                            _ => (),
+                        }
                     },
-                    _ => (),
                 }
             },
             Poll::Wait => {
@@ -54,14 +54,14 @@ fn main() {
         frame = jumper.draw(None);
         frame = cliff.draw(Some(&frame));
 
-        for line in top_indent {
-            println!("\r{}{}", left_indent, line);
-        }
+        println!("{}", top_indent);
         for line in &frame {
             println!("\r{}|{}|", left_indent, line);       // contents of the box (gameplay)
         }
-        for line in bottom_indent {
-            println!("\r{}{}", left_indent, line);
+        println!("\r{}", bottom_indent);
+
+        if cliff.erase_body() {
+            cliff = Cliff::new(&jumper);
         }
     }
 }

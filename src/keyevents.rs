@@ -45,6 +45,7 @@ pub struct TermiosAttribs {     // wrapper struct for the C-like struct
 impl Drop for TermiosAttribs {
     fn drop(&mut self) {    // override `drop` to set back the old termios attributes on drop
         unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &mut self.term) };
+        print!("\x1B[?25h");    // show the cursor
     }
 }
 
@@ -71,7 +72,11 @@ pub fn set_raw_mode() -> TermiosAttribs {
 
         cfmakeraw(&mut new_termios);    // get the attributes for raw termios into our termios
         match tcsetattr(STDIN_FILENO, TCSANOW, &mut new_termios) {  // try setting the newly obtained attributes
-            0 => old_termios,   // Yay! switched to raw mode! Now, return the wrapper (for later drop)
+            0 => {  // Yay! switched to raw mode! Now, return the wrapper (for later drop)
+                print!("\x1B[?25l");    // hide the cursor
+                println!("\n");
+                old_termios
+            },
             _ => {
                 println!("\n\tERROR: Can't switch to raw mode!\n");
                 panic!("switching to raw mode")
