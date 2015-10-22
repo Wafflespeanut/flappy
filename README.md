@@ -1,17 +1,6 @@
-## free fall
+## Free fall
 
-A horribly *inefficient* game to fiddle around Rust and its interaction with the terminal. There's a jumper who's got one DOF (to move sideways) and avoid the cliffs from hitting him (when the game ends). At least, that's the idea behind the game, because **it's still incomplete!** Oh, and this game was inspired by the [tetris game written in Rust](https://www.reddit.com/r/rust/comments/1yr2uz/tetris_game_in_rust/).
-
-### Checklist:
-
- - [x] set up the sprites (cliff & jumper)
- - [x] set up the terminal raw mode for gameplay
- - [x] read and handle keystrokes
- - [x] synchronize keystrokes with game's input polling and handling
- - [ ] an useful AI to move the cliffs
- - [ ] detect collisions
-
-Note that this has been paused for a while (as a result of other works).
+A horribly *inefficient* game to fiddle around Rust and its interaction with the terminal. There's a jumper who's got one DOF (to move sideways) and avoid the cliffs from hitting him (when the game ends). This game was inspired by the [tetris game written in Rust](https://www.reddit.com/r/rust/comments/1yr2uz/tetris_game_in_rust/).
 
 ### Set your terminal attributes!
 

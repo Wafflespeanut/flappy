@@ -18,7 +18,7 @@ impl Jumper {
     pub fn new(fall_area: FallArea) -> Jumper {
         Jumper {
             area: fall_area,
-            x_pos: (fall_area.width.0 / 2),     // initial position of the jumper
+            x_pos: (fall_area.width.0 / 2),     // initial x-position of the jumper
             body: ["  \\\\ //  ",
                    "===[O]==="]    // assume that it's the front view of a falling jumper
                    .iter()
@@ -29,17 +29,15 @@ impl Jumper {
 }
 
 impl Sprite for Jumper {
-    fn draw(&self, _frame: Option<&[String]>) -> Vec<String> {   // basic draw doesn't need a frame
+    // base frame over which subsequent frames are drawn (especially the ones with cliffs)
+    fn draw(&self, _frame: Option<&[String]>) -> Vec<String> {
         let fall_area = self.area;
-        let empty = multiply(" ", fall_area.width.0);
         let (body_width, body_height) = (self.body[0].len(), self.body.len());
         (0..fall_area.height.0).map(|i| {
-            if i < body_height {
-                let start = multiply(" ", self.x_pos);
-                let end = multiply(" ", fall_area.width.0 - (self.x_pos + body_width));
-                String::from(start) + &self.body[i] + &end
-            } else {
-                empty.clone()
+            match i < body_height {
+                true => multiply(" ", self.x_pos) + &self.body[i]
+                               + &multiply(" ", fall_area.width.0 - (self.x_pos + body_width)),
+                false => multiply(" ", fall_area.width.0),
             }
         }).collect()
     }
@@ -85,7 +83,7 @@ impl Cliff {
         Cliff {
             area: jumper.area,
             x_pos: x_pos,
-            y_pos: jumper.area.height.0 - 4,    // initial position of any cliff is at the bottom
+            y_pos: jumper.area.height.0,    // initial position of any cliff is at the bottom
             body: (1..5).map(|part| {
                 match part {                                             // sample cliff of size "2"
                     1 => " ".to_owned() + &multiply("_", size) + " ",    //      __
@@ -115,7 +113,6 @@ impl Sprite for Cliff {
 
         let fall_area = self.area;
         let (x_pos, y_pos) = (self.x_pos, self.y_pos);
-        let empty = multiply(" ", fall_area.width.0);
         let (body_width, body_height) = (self.body[0].len(), self.body.len());
         (0..fall_area.height.0).map(|i| {
             if i < y_pos {
@@ -123,9 +120,9 @@ impl Sprite for Cliff {
             } else if i < (y_pos + body_height) {
                 let line = &frame[i];
                 let (start, end) = (&line[..x_pos], &line[x_pos + body_width..]);
-                String::from(start) + &self.body[i - y_pos] + end
+                start.to_owned() + &self.body[i - y_pos] + end
             } else {
-                empty.clone()
+                multiply(" ", fall_area.width.0)
             }
         }).collect()
     }
