@@ -1,16 +1,17 @@
 use helpers::*;
 use keyevents::Key;
 use rand::{thread_rng, Rng};
+use {WIDTH, HEIGHT, CLIFF_PER_PAGE};
 
 #[derive(Clone)]
-pub struct Jumper {
+struct Jumper {
     area: FallArea,
     x_pos: usize,       // for now, he's got only one DOF
     body: Vec<String>,
 }
 
 impl Jumper {
-    pub fn new(fall_area: FallArea) -> Jumper {
+    fn new(fall_area: FallArea) -> Jumper {
         Jumper {
             area: fall_area,
             x_pos: (fall_area.width.0 / 2),     // initial x-position of the jumper
@@ -23,7 +24,7 @@ impl Jumper {
     }
 
     // base frame over which subsequent frames are drawn (especially the ones with cliffs)
-    pub fn draw(&self) -> Vec<String> {
+    fn draw(&self) -> Vec<String> {
         let fall_area = self.area;
         let (body_width, body_height) = (self.body[0].len(), self.body.len());
         (0..fall_area.height.0).map(|i| {
@@ -35,7 +36,7 @@ impl Jumper {
         }).collect()
     }
 
-    pub fn shift(&mut self, x_pos: usize, key: Key) {
+    fn shift(&mut self, x_pos: usize, key: Key) {
         match key {
             Key::Right if (self.x_pos + x_pos + self.body[0].len()) < self.area.width.0 => {
                 self.x_pos += x_pos;
@@ -49,7 +50,7 @@ impl Jumper {
 }
 
 #[derive(Clone)]
-pub struct Cliff {
+struct Cliff {
     area: FallArea, // FallArea is always required by the sprites (to know about the dimensions)
     x_pos: usize,   // used for initial random positioning of the cliff (restricted to window's width)
     y_pos: usize,   // though it has only one DOF, the cliffs should move upward over consecutive frames
@@ -58,7 +59,7 @@ pub struct Cliff {
 }
 
 impl Cliff {
-    pub fn new(jumper: &Jumper) -> Cliff {   // jumper's position is necessary to throw cliffs at him!
+    fn new(jumper: &Jumper) -> Cliff {   // jumper's position is necessary to throw cliffs at him!
         let mut rng = thread_rng();
         let full_width = jumper.area.width.0;
         let half_width = full_width / 2;
@@ -91,7 +92,7 @@ impl Cliff {
         }
     }
 
-    pub fn draw(&mut self, frame: &[String]) -> Vec<String> {
+    fn draw(&mut self, frame: &[String]) -> Vec<String> {
         // mutable reference because we gotta check whether we've collided and update as necessary
         fn collision(string: &str) -> Option<&str> {
             for j in string.chars() {
@@ -124,7 +125,7 @@ impl Cliff {
         frame_with_cliff
     }
 
-    pub fn shift(&mut self, y_pos: usize) {
+    fn shift(&mut self, y_pos: usize) {
         let diff = self.y_pos as isize - y_pos as isize;
         if diff >= 0 {
             self.y_pos -= y_pos;
@@ -133,28 +134,34 @@ impl Cliff {
         }
     }
 
-    pub fn collision_msg(&self) -> Option<String> {
+    fn collision_msg(&self) -> Option<String> {
         self.collision.clone()
     }
 
-    pub fn erase_body(&self) -> bool {
+    fn erase_body(&self) -> bool {
         self.body.len() == 1
     }
 }
 
 pub struct Game {           // struct to hold the global attributes of a new game
-    pub jumper: Jumper,
-    pub side: String,
-    pub top: String,
-    pub bottom: String,
+    jumper: Jumper,
+    cliffs: Vec<Cliff>,
+    cliffs_count: u8,
+    // about-to-deprecate fields
+    side: String,
+    top: String,
+    bottom: String,
 }
 
 impl Game {
-    pub fn new(width: usize, height: usize) -> Result<Game, String> {   // let the game begin!
-        let fall_area = match FallArea::new(width, height) {
+    pub fn new() -> Result<Game, String> {
+        let fall_area = match FallArea::new(WIDTH, HEIGHT) {
             Ok(area) => area,
             Err(err) => return Err(err.to_owned()),
         };
+        let jumper = Jumper::new(fall_area);
+        let cliff = Cliff::new(&jumper);
+
         let top_indent = fall_area.height.1 / 2;
         let bottom_indent = fall_area.height.1 - top_indent;
         let box_width = fall_area.width.0;
@@ -167,10 +174,46 @@ impl Game {
         let user_env_bottom = dashes + &multiply("\r\n", bottom_indent - 1);
 
         Ok(Game {
-            jumper: Jumper::new(fall_area),
+            jumper: jumper,
+            cliffs: vec![cliff],
+            cliffs_count: 1,
             side: multiply(" ", left_indent),
             top: user_env_top,
             bottom: user_env_bottom,
         })
+    }
+
+    pub fn display_frame_and_update(&mut self) -> bool {
+        let mut frame = self.jumper.draw();
+        for cliff in &mut self.cliffs {     // very inefficient (should be taken to Cliff::draw)
+            if cliff.erase_body() {
+                *cliff = Cliff::new(&self.jumper);
+            }
+            frame = cliff.draw(&frame);
+            match cliff.collision_msg() {
+                Some(msg) => {
+                    print_error(&msg);
+                    return true
+                },
+                None => (),
+            }
+        }
+
+        // gameplay inside an outlined box
+        println!("{}", self.top);
+        print!("\r{}|{}", &self.side, frame.join(&("|\n\r".to_owned() + &self.side + "|")));
+        println!("\r{}", self.bottom);
+
+        false
+    }
+
+    pub fn jumper_shift(&mut self, x_pos: usize, key: Key) {
+        self.jumper.shift(x_pos, key)
+    }
+
+    pub fn cliffs_shift(&mut self, y_pos: usize) {
+        for cliff in &mut self.cliffs {
+            cliff.shift(y_pos);
+        }
     }
 }

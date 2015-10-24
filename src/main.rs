@@ -8,9 +8,18 @@ mod sprites;
 
 use helpers::print_error;
 use keyevents::*;
-use libc::c_uint;
-use sprites::*;
+use libc::{c_int, c_uint};
+use sprites::Game;
 use time::precise_time_ns;
+
+// NOTE: system-dependent constant (not available in libc yet, so you'd have to get it from your system)
+const TIOCGWINSZ: c_int = 21523;
+// width & height for game
+const WIDTH: usize = 50;
+const HEIGHT: usize = 30;
+// difficulty attributes (gameplay speed & intensity)
+const TIMEOUT_MS: c_uint = 100;     // inversely proportional to difficulty (speed)
+const CLIFF_PER_PAGE: u8 = 3;       // proportional to difficulty (number of cliffs)
 
 fn main() {
     let _raw = match set_raw_mode() {   // old termios attributes (which will be restored on drop)
@@ -21,21 +30,16 @@ fn main() {
         }
     };
 
-    let initial_timeout_ms: c_uint = 100;           // would be 10 fps
-    let mut poll_timeout_ms = initial_timeout_ms;
+    let mut poll_timeout_ms = TIMEOUT_MS;
     let mut time_since_last_ns: u64 = 0;
 
-    let game = match Game::new(50, 30) {
+    let mut game = match Game::new() {
         Ok(stuff) => stuff,
         Err(err) => {
             print_error(&err);
             return;
         }
     };
-
-    let mut jumper = game.jumper;
-    let mut cliff = Cliff::new(&jumper);
-    let mut game_frame: Vec<String>;
 
     loop {
         let start_time = precise_time_ns();
@@ -51,8 +55,8 @@ fn main() {
                             },
                             _ => {
                                 time_since_last_ns += precise_time_ns() - start_time;
-                                poll_timeout_ms = initial_timeout_ms - ((time_since_last_ns / 1000000) as c_uint);
-                                jumper.shift(3, key)
+                                poll_timeout_ms = TIMEOUT_MS - ((time_since_last_ns / 1000000) as c_uint);
+                                game.jumper_shift(3, key)
                             },
                         },
                         Err(err) => {
@@ -63,8 +67,8 @@ fn main() {
                 },
                 Poll::Wait => {
                     time_since_last_ns = 0;
-                    poll_timeout_ms = initial_timeout_ms;
-                    cliff.shift(1);
+                    poll_timeout_ms = TIMEOUT_MS;
+                    game.cliffs_shift(1);
                 },
             },
             Err(err) => {
@@ -73,22 +77,8 @@ fn main() {
             }
         }
 
-        game_frame = jumper.draw();
-        game_frame = cliff.draw(&game_frame);
-        match cliff.collision_msg() {
-            Some(msg) => {
-                print_error(&msg);
-                break
-            },
-            None => (),
-        }
-        // gameplay inside an outlined box
-        println!("{}", game.top);
-        print!("\r{}|{}", &game.side, game_frame.join(&("|\n\r".to_owned() + &game.side + "|")));
-        println!("\r{}", game.bottom);
-
-        if cliff.erase_body() {
-            cliff = Cliff::new(&jumper);
+        if game.display_frame_and_update() {
+            break
         }
     }
 }

@@ -1,9 +1,8 @@
-use libc::{c_ushort, c_int, STDOUT_FILENO};
+use libc::{c_ushort, STDOUT_FILENO};
 use libc::funcs::bsd44::ioctl;
 use std::iter::repeat;
+use TIOCGWINSZ;
 
-// NOTE: system-dependent constant (not available in libc yet, so you'd have to get it from your system)
-const TIOCGWINSZ: c_int = 21523;
 // minimum width & height (for a smoother gameplay)
 const WIN_COLS: usize = 40;
 const WIN_ROWS: usize = 30;
