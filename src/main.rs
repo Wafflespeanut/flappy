@@ -17,9 +17,9 @@ const TIOCGWINSZ: c_int = 21523;
 // width & height for game
 const WIDTH: usize = 50;
 const HEIGHT: usize = 30;
-// difficulty attributes (gameplay speed & intensity)
-const TIMEOUT_MS: c_uint = 100;     // inversely proportional to difficulty (speed)
-const CLIFF_PER_PAGE: u8 = 3;       // proportional to difficulty (number of cliffs)
+// difficulty attributes (inversely proportional to difficulty)
+const TIMEOUT_MS: c_uint = 100;     // gameplay speed
+const CLIFF_SEPARATION: u8 = 6;     // throw cliffs every X lines
 
 fn main() {
     let _raw = match set_raw_mode() {   // old termios attributes (which will be restored on drop)
@@ -29,7 +29,6 @@ fn main() {
             return;
         }
     };
-
     let mut poll_timeout_ms = TIMEOUT_MS;
     let mut time_since_last_ns: u64 = 0;
 

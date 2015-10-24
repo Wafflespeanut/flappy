@@ -13,7 +13,7 @@ struct WindowSize {
     col: c_ushort,
 }
 
-fn window_size <'a>() -> Result<(usize, usize), &'a str> {      // get the current size of the terminal window
+fn window_size() -> Result<(usize, usize), &'static str> {      // get the current size of the terminal window
     let wsize = WindowSize { row: 0, col: 0 };
     let val = unsafe { ioctl(STDOUT_FILENO, TIOCGWINSZ, &wsize) };
     match val {
@@ -22,14 +22,14 @@ fn window_size <'a>() -> Result<(usize, usize), &'a str> {      // get the curre
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct FallArea {   // necessary type which describes where the game objects should be drawn
     pub width: (usize, usize),      // (width restricted for the game, remaining width)
     pub height: (usize, usize),     // (height restricted for the game, remaining height)
 }
 
 impl FallArea {
-    pub fn new <'a>(width: usize, height: usize) -> Result<FallArea, &'a str> {
+    pub fn new(width: usize, height: usize) -> Result<FallArea, &'static str> {
         let size_result = window_size();
         if let Ok((rows, cols)) = size_result {
             if (width < WIN_COLS) | (height < WIN_ROWS) | (rows < WIN_ROWS) | (cols < WIN_COLS) {

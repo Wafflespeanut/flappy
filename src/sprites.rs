@@ -1,32 +1,35 @@
 use helpers::*;
 use keyevents::Key;
 use rand::{thread_rng, Rng};
-use {WIDTH, HEIGHT, CLIFF_PER_PAGE};
+use {WIDTH, HEIGHT, CLIFF_SEPARATION};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Jumper {
     area: FallArea,
     x_pos: usize,       // for now, he's got only one DOF
     body: Vec<String>,
+    size: (usize, usize),
 }
 
 impl Jumper {
     fn new(fall_area: FallArea) -> Jumper {
+        let body = ["  \\\\ //  ",
+                    "===[O]==="];   // assume that it's the front view of a falling jumper
         Jumper {
             area: fall_area,
             x_pos: (fall_area.width.0 / 2),     // initial x-position of the jumper
-            body: ["  \\\\ //  ",
-                   "===[O]==="]    // assume that it's the front view of a falling jumper
-                   .iter()
-                   .map(|&string| string.to_owned())
-                   .collect(),
+            body: body
+                  .iter()
+                  .map(|&string| string.to_owned())
+                  .collect(),
+            size: (body[0].len(), body.len())
         }
     }
 
     // base frame over which subsequent frames are drawn (especially the ones with cliffs)
     fn draw(&self) -> Vec<String> {
         let fall_area = self.area;
-        let (body_width, body_height) = (self.body[0].len(), self.body.len());
+        let (body_width, body_height) = (self.size.0, self.size.1);
         (0..fall_area.height.0).map(|i| {
             match i < body_height {
                 true => multiply(" ", self.x_pos) + &self.body[i]
@@ -49,13 +52,14 @@ impl Jumper {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Cliff {
     area: FallArea, // FallArea is always required by the sprites (to know about the dimensions)
     x_pos: usize,   // used for initial random positioning of the cliff (restricted to window's width)
     y_pos: usize,   // though it has only one DOF, the cliffs should move upward over consecutive frames
-    body: Vec<String>,  // size of the cliff is random and restricted to half of the window's width (and a height of "4")
-    collision: Option<String>,    // has the message related to the collision
+    body: Vec<String>,  // contains the generated cliff
+    size: (usize, usize),   // cliff size is random and restricted to half the window's width (and a height of "4")
+    collision: Option<&'static str>,    // message related to the collision (which ends the game)
 }
 
 impl Cliff {
@@ -63,7 +67,8 @@ impl Cliff {
         let mut rng = thread_rng();
         let full_width = jumper.area.width.0;
         let half_width = full_width / 2;
-        let size: usize = rng.gen_range(3, half_width);
+        let x_size: usize = rng.gen_range(2, half_width);
+        let y_size: usize = rng.gen_range(4, 6);
 
         let left_side = {
             let jumper_side = jumper.x_pos.le(&half_width);
@@ -72,29 +77,35 @@ impl Cliff {
 
         let x_pos: usize = match left_side {
             true => rng.gen_range(1, full_width / 3) - 1,
-            false => jumper.area.width.0 - size - rng.gen_range(1, full_width / 3) - 1,
+            false => full_width - x_size - rng.gen_range(1, full_width / 3) - 1,
         };
 
         Cliff {
             area: jumper.area,
             x_pos: x_pos,
             y_pos: jumper.area.height.0,    // initial position of any cliff is at the bottom
-            body: (1..5).map(|part| {
-                match part {                                             // sample cliff of size "2"
-                    1 => " ".to_owned() + &multiply("_", size) + " ",    //      __
-                    2 => "/".to_owned() + &multiply("O", size) + "\\",   //     /OO\
-                    3 => "\\".to_owned() + &multiply("O", size) + "/",   //     \OO/
-                    4 => " ".to_owned() + &multiply("-", size) + " ",    //      --
-                    _ => panic!("unexpected value for cliff"),
-                }
-            }).collect(),
+            body: (0..y_size)
+                  .map(|part| {
+                      if part == 0 {                                        // cliff of size (4, 5)
+                          " ".to_owned() + &multiply("_", x_size) + " "     //      __
+                      } else if part == 1 {                                 //     /OO\
+                          "/".to_owned() + &multiply("O", x_size) + "\\"    //     |OO|
+                      } else if part == y_size - 2 {                        //     \OO/
+                          "\\".to_owned() + &multiply("O", x_size) + "/"    //      --
+                      } else if part == y_size - 1 {                        //
+                          " ".to_owned() + &multiply("-", x_size) + " "
+                      } else {
+                          "|".to_owned() + &multiply("O", x_size) + "|"
+                      }
+                  }).collect(),
+            size: (x_size + 2, y_size),
             collision: None,
         }
     }
 
-    fn draw(&mut self, frame: &[String]) -> Vec<String> {
+    fn draw(&mut self, frame: &mut [String]) {
         // mutable reference because we gotta check whether we've collided and update as necessary
-        fn collision(string: &str) -> Option<&str> {
+        fn collision(string: &str) -> Option<&'static str> {
             for j in string.chars() {
                 match j {
                     '=' => return Some("You tore your arm off!"),
@@ -105,24 +116,16 @@ impl Cliff {
             } None
         }
 
-        let fall_area = self.area;
-        let mut error = None;
         let (x_pos, y_pos) = (self.x_pos, self.y_pos);
-        let (body_width, body_height) = (self.body[0].len(), self.body.len());
-        let frame_with_cliff = (0..fall_area.height.0).map(|i| {
-            if i < y_pos {
-                frame[i].clone()
-            } else if i < (y_pos + body_height) {
-                let line = &frame[i];
+        let (body_width, body_height) = (self.size.0, self.size.1);
+        for i in y_pos..(y_pos + body_height) {
+            if i < self.area.height.0 {
+                let line = frame[i].clone();
                 let (start, end) = (&line[..x_pos], &line[x_pos + body_width..]);
-                error = collision(&line[x_pos..x_pos + body_width]);
-                start.to_owned() + &self.body[i - y_pos] + end
-            } else {
-                frame[i].clone()
+                self.collision = collision(&line[x_pos..x_pos + body_width]);
+                frame[i] = start.to_owned() + &self.body[i - y_pos] + end;
             }
-        }).collect();
-        self.collision = error.map(|err| err.to_owned());
-        frame_with_cliff
+        }
     }
 
     fn shift(&mut self, y_pos: usize) {
@@ -131,10 +134,11 @@ impl Cliff {
             self.y_pos -= y_pos;
         } else {
             self.body = self.body[1..].to_vec();
+            self.size = (self.size.0, self.size.1 - 1);
         }
     }
 
-    fn collision_msg(&self) -> Option<String> {
+    fn collision_msg(&self) -> Option<&'static str> {
         self.collision.clone()
     }
 
@@ -154,11 +158,12 @@ pub struct Game {           // struct to hold the global attributes of a new gam
 }
 
 impl Game {
-    pub fn new() -> Result<Game, String> {
+    pub fn new() -> Result<Game, &'static str> {
         let fall_area = match FallArea::new(WIDTH, HEIGHT) {
             Ok(area) => area,
-            Err(err) => return Err(err.to_owned()),
+            Err(err) => return Err(err),
         };
+
         let jumper = Jumper::new(fall_area);
         let cliff = Cliff::new(&jumper);
 
@@ -185,11 +190,8 @@ impl Game {
 
     pub fn display_frame_and_update(&mut self) -> bool {
         let mut frame = self.jumper.draw();
-        for cliff in &mut self.cliffs {     // very inefficient (should be taken to Cliff::draw)
-            if cliff.erase_body() {
-                *cliff = Cliff::new(&self.jumper);
-            }
-            frame = cliff.draw(&frame);
+        for cliff in &mut self.cliffs {     // very inefficient (should be replaced soon).
+            cliff.draw(&mut frame);
             match cliff.collision_msg() {
                 Some(msg) => {
                     print_error(&msg);
@@ -213,6 +215,9 @@ impl Game {
 
     pub fn cliffs_shift(&mut self, y_pos: usize) {
         for cliff in &mut self.cliffs {
+            if cliff.erase_body() {
+                *cliff = Cliff::new(&self.jumper);
+            }
             cliff.shift(y_pos);
         }
     }

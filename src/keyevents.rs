@@ -49,7 +49,7 @@ impl Drop for TermiosAttribs {
     }
 }
 
-pub fn set_raw_mode<'a>() -> Result<TermiosAttribs, &'a str> {
+pub fn set_raw_mode() -> Result<TermiosAttribs, &'static str> {
     let mut new_termios = Termios {     // some initial values
         c_iflag: 0,
         c_oflag: 0,
@@ -84,7 +84,7 @@ pub enum Poll {     // we need polling to capture the keystrokes in specific tim
     Wait,
 }
 
-pub fn poll_keypress<'a>(timeout_ms: c_uint) -> Result<Poll, &'a str> {
+pub fn poll_keypress(timeout_ms: c_uint) -> Result<Poll, &'static str> {
     let mut poll_fd = PollFD {
         fd: STDIN_FILENO,   // since we're capturing the standard input
         events: POLLIN,
@@ -109,7 +109,7 @@ pub enum Key {      // We'll be needing only these keys for the game
     Other,
 }
 
-pub fn read_keypress<'a>() -> Result<Key, &'a str> {
+pub fn read_keypress() -> Result<Key, &'static str> {
     let mut buffer: u32 = 0;
     unsafe {
         if read(STDIN_FILENO, &mut buffer, 8) < 0 {
