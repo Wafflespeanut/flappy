@@ -55,5 +55,5 @@ pub fn multiply(ch: &str, length: usize) -> String {    // I don't wanna write t
 }
 
 pub fn print_error(err: &str) {
-    print!("\r\n\t{}", err);
+    println!("\r\n\t{}\r\n", err);
 }

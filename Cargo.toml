@@ -4,6 +4,6 @@ version = "0.1.0"
 authors = ["Ravi Shankar <wafflespeanut@gmail.com>"]
 
 [dependencies]
-libc = "0.1"
-rand = "0.3"
-time = "0.1"
+libc = "*"
+rand = "*"
+time = "*"
