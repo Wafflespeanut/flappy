@@ -53,6 +53,6 @@ pub fn multiply(ch: &str, length: usize) -> String {    // I don't wanna write t
     repeat(ch).take(length).collect()
 }
 
-pub fn print_error(err: &str) {
-    println!("\r\n\t{}\r\n", err);
+pub fn print_msg(msg: &str) {
+    println!("\r\n\t{}\r\n", msg);
 }

@@ -26,7 +26,7 @@ impl Jumper {
         }
     }
 
-    // base frame over which subsequent frames are drawn (especially the ones with cliffs)
+    // base frame over which subsequent frames are drawn
     fn draw(&self) -> Vec<String> {
         let fall_area = self.area;
         let (body_width, body_height) = (self.size.0, self.size.1);
@@ -54,12 +54,10 @@ impl Jumper {
 
 #[derive(Clone, Debug)]
 struct Cliff {
-    area: FallArea, // FallArea is always required by the sprites (to know about the dimensions)
     x_pos: usize,   // used for initial random positioning of the cliff (restricted to window's width)
     y_pos: usize,   // though it has only one DOF, the cliffs should move upward over consecutive frames
-    body: Vec<String>,  // contains the generated cliff
+    body: Vec<String>,
     size: (usize, usize),   // cliff size is random and restricted to half the window's width (and a height of "4")
-    collision: Option<&'static str>,    // message related to the collision (which ends the game)
 }
 
 impl Cliff {
@@ -81,7 +79,6 @@ impl Cliff {
         };
 
         Cliff {
-            area: jumper.area,
             x_pos: x_pos,
             y_pos: jumper.area.height.0,    // initial position of any cliff is at the bottom
             body: (0..y_size)
@@ -99,32 +96,6 @@ impl Cliff {
                       }
                   }).collect(),
             size: (x_size + 2, y_size),
-            collision: None,
-        }
-    }
-
-    fn draw(&mut self, frame: &mut [String]) {
-        // mutable reference because we gotta check whether we've collided and update as necessary
-        fn collision(string: &str) -> Option<&'static str> {
-            for j in string.chars() {
-                match j {
-                    '=' => return Some("You tore your arm off!"),
-                    '\\' | '/' => return Some("There goes your leg!"),
-                    '[' | ']' | 'o' => return Some("You're now headless!"),
-                    _ => continue,
-                }
-            } None
-        }
-
-        let (x_pos, y_pos) = (self.x_pos, self.y_pos);
-        let (body_width, body_height) = (self.size.0, self.size.1);
-        for i in y_pos..(y_pos + body_height) {
-            if i < self.area.height.0 {
-                let line = frame[i].clone();
-                let (start, end) = (&line[..x_pos], &line[x_pos + body_width..]);
-                self.collision = collision(&line[x_pos..x_pos + body_width]);
-                frame[i] = start.to_owned() + &self.body[i - y_pos] + end;
-            }
         }
     }
 
@@ -138,10 +109,6 @@ impl Cliff {
         }
     }
 
-    fn collision_msg(&self) -> Option<&'static str> {
-        self.collision.clone()
-    }
-
     fn erase_body(&self) -> bool {
         self.body.len() == 1
     }
@@ -150,7 +117,7 @@ impl Cliff {
 pub struct Game {           // struct to hold the global attributes of a new game
     jumper: Jumper,
     cliffs: Vec<Cliff>,
-    cliffs_count: u8,
+    collision: Option<&'static str>,
     // about-to-deprecate fields
     side: String,
     top: String,
@@ -181,32 +148,36 @@ impl Game {
         Ok(Game {
             jumper: jumper,
             cliffs: vec![cliff],
-            cliffs_count: 1,
+            collision: None,
             side: multiply(" ", left_indent),
             top: user_env_top,
             bottom: user_env_bottom,
         })
     }
 
-    pub fn display_frame_and_update(&mut self) -> bool {
+    pub fn is_running(&mut self) -> bool {
         let mut frame = self.jumper.draw();
-        for cliff in &mut self.cliffs {     // very inefficient (should be replaced soon).
-            cliff.draw(&mut frame);
-            match cliff.collision_msg() {
-                Some(msg) => {
-                    print_error(&msg);
-                    return true
-                },
-                None => (),
-            }
-        }
+        self.draw_cliffs(&mut frame, false);
 
-        // gameplay inside an outlined box
+        match self.collision {
+            Some(msg) => {
+                self.collision = None;      // workaround for printing the last frame while quitting
+                self.draw_cliffs(&mut frame, true);
+                self.print_frame(&frame);
+                print_msg(msg);
+                false
+            },
+            None => {
+                self.print_frame(&frame);
+                true
+            },
+        }
+    }
+
+    pub fn print_frame(&self, frame: &[String]) {       // gameplay inside an outlined box
         println!("{}", self.top);
         print!("\r{}|{}", &self.side, frame.join(&("|\n\r".to_owned() + &self.side + "|")));
         println!("\r{}", self.bottom);
-
-        false
     }
 
     pub fn jumper_shift(&mut self, x_pos: usize, key: Key) {
@@ -214,11 +185,42 @@ impl Game {
     }
 
     pub fn cliffs_shift(&mut self, y_pos: usize) {
-        for cliff in &mut self.cliffs {
+        for cliff in &mut self.cliffs {     // shift the cliffs first (i.e., check & update the fields)
             if cliff.erase_body() {
                 *cliff = Cliff::new(&self.jumper);
             }
             cliff.shift(y_pos);
+        }
+    }
+
+    pub fn draw_cliffs(&mut self, frame: &mut [String], ignore_once: bool) {
+        let area = self.jumper.area;
+        fn collision(string: &str) -> Option<&'static str> {
+            for j in string.chars() {
+                match j {
+                    '=' => return Some("You tore your arm off!"),
+                    '\\' | '/' => return Some("There goes your leg!"),
+                    '[' | ']' | 'o' => return Some("You're now headless!"),
+                    _ => continue,
+                }
+            } None
+        }
+
+        for cliff in &self.cliffs {
+            let (x_pos, y_pos) = (cliff.x_pos, cliff.y_pos);
+            let (body_width, body_height) = (cliff.size.0, cliff.size.1);
+            for i in y_pos..(y_pos + body_height) {
+                if i < area.height.0 {
+                    let line = frame[i].clone();
+                    let (start, end) = (&line[..x_pos], &line[x_pos + body_width..]);
+                    frame[i] = start.to_owned() + &cliff.body[i - y_pos] + end;
+                    self.collision = collision(&line[x_pos..x_pos + body_width]);
+                }
+                // we ignore the collision thing only for printing the last frame while quitting
+                if !ignore_once && self.collision.is_some() {
+                    return
+                }
+            }
         }
     }
 }

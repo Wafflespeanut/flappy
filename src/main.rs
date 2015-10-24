@@ -6,7 +6,7 @@ mod helpers;
 mod keyevents;
 mod sprites;
 
-use helpers::print_error;
+use helpers::print_msg;
 use keyevents::*;
 use libc::{c_int, c_uint};
 use sprites::Game;
@@ -25,7 +25,7 @@ fn main() {
     let _raw = match set_raw_mode() {   // old termios attributes (which will be restored on drop)
         Ok(term_attrib) => term_attrib,
         Err(err) => {
-            print_error(err);
+            print_msg(err);
             return;
         }
     };
@@ -35,12 +35,12 @@ fn main() {
     let mut game = match Game::new() {
         Ok(stuff) => stuff,
         Err(err) => {
-            print_error(&err);
+            print_msg(&err);
             return;
         }
     };
 
-    loop {
+    while game.is_running() {
         let start_time = precise_time_ns();
         match poll_keypress(poll_timeout_ms) {      // wait for the given time to capture the input
             Ok(poll) => match poll {
@@ -49,7 +49,7 @@ fn main() {
                     match keypress {        // proceeds immediately on input
                         Ok(key) => match key {
                             Key::Quit => {
-                                println!("\rGoodbye...\n\r");
+                                print_msg("\rGoodbye...\n\r");
                                 break
                             },
                             _ => {
@@ -59,7 +59,7 @@ fn main() {
                             },
                         },
                         Err(err) => {
-                            print_error(err);
+                            print_msg(err);
                             break
                         }
                     }
@@ -71,13 +71,9 @@ fn main() {
                 },
             },
             Err(err) => {
-                print_error(err);
+                print_msg(err);
                 break
             }
-        }
-
-        if game.display_frame_and_update() {
-            break
         }
     }
 }
