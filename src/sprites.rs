@@ -1,7 +1,8 @@
 use helpers::*;
+use libc::c_uint;
 use keyevents::Key;
 use rand::{thread_rng, Rng};
-use {CLIFF_SEPARATION, CLIFF_Y, HEIGHT, JUMPER_X, JUMPER_Y, WIDTH};
+use {CLIFF_SEPARATION, CLIFF_Y, HEIGHT, JUMPER_X, JUMPER_Y, TIMEOUT_MS, WIDTH};
 
 #[derive(Clone, Debug)]
 struct Jumper {
@@ -74,10 +75,10 @@ struct Cliff {
 impl Cliff {
     fn new(jumper: &Jumper) -> Cliff {   // jumper's position is necessary to throw cliffs at him!
         let mut rng = thread_rng();
-        let full_width = jumper.area.width.0;
+        let (full_width, full_height) = (jumper.area.width.0, jumper.area.height.0);
         let half_width = full_width / 2;
-        let x_size: usize = rng.gen_range(3, half_width - half_width / 5);
-        let y_size: usize = rng.gen_range(4, 6);
+        let x_size: usize = rng.gen_range(half_width / 5, half_width - half_width / 5);
+        let y_size: usize = rng.gen_range(4, full_height / 5);    // minimum y_size is 4
 
         let left_side = {
             let jumper_side = jumper.x_pos.le(&half_width);
@@ -91,10 +92,10 @@ impl Cliff {
 
         Cliff {
             x_pos: x_pos,
-            y_pos: jumper.area.height.0,    // initial position of any cliff is at the bottom
+            y_pos: full_height,     // initial position of any cliff is at the bottom
             body: (0..y_size)
                   .map(|part| {
-                      if part == 0 {                                        // cliff of size (4, 5)
+                      if part == 0 {                                        // cliff of size (2, 5)
                           " ".to_owned() + &multiply("_", x_size) + " "     //      __
                       } else if part == 1 {                                 //     /OO\
                           "/".to_owned() + &multiply("O", x_size) + "\\"    //     |OO|
@@ -125,21 +126,24 @@ impl Cliff {
     }
 }
 
-pub struct Game {           // struct to hold all the objects required for a new game
-    jumper: Jumper,
-    cliffs: Vec<Cliff>,
+pub struct Game {   // struct to hold all the objects required for a new game
+    // difficulty parameters (inversely proportional to difficulty)
+    pub poll_timeout: c_uint,       // how fast the cliffs come & try to bang at you!
+    cliff_separation: usize,    // how long before a cliff appears!
+    jumper: Jumper,     // jumper is always necessary to draw the picture
+    cliffs: Vec<Cliff>,     // vector of all cliffs on the current frame
     num_cliffs: usize,      // just to stop finding the length every time we update the cliffs
-    line_since_last: usize,     // line since the last cliff was thrown (since the cliffs are equally spaced)
-    collision: Option<&'static str>,
-    score: usize,
-    // FIXME: yuck! these should be replaced with cursor controllers ASAP
+    line_since_last: usize,     // line since the last cliff was thrown (required because they're equally spaced)
+    collision: Option<&'static str>,    // collision message which is triggered when the game ends
+    score: usize,   // score that you see on the lower left corner
+    // FIXME: yuck! these should be replaced with cursor controllers "ASAP!"
     side: String,
     top: String,
     bottom: String,
 }
 
 impl Game {
-    pub fn new() -> Result<Game, &'static str> {
+    pub fn new(poll_timeout: c_uint, cliff_sep: usize) -> Result<Game, &'static str> {
         let fall_area = match FallArea::new(WIDTH, HEIGHT) {
             Ok(area) => area,
             Err(err) => return Err(err),
@@ -160,6 +164,8 @@ impl Game {
         let user_env_bottom = dashes + &multiply("\r\n", bottom_indent);
 
         Ok(Game {
+            poll_timeout: poll_timeout,
+            cliff_separation: cliff_sep,
             jumper: jumper,
             cliffs: vec![cliff],
             num_cliffs: 1,
@@ -175,7 +181,11 @@ impl Game {
 
     pub fn is_running(&mut self) -> bool {
         let mut frame = self.jumper.draw();
-        self.draw_cliffs(&mut frame, false);
+        // decrement the poll timeout for every 8 units of score
+        self.poll_timeout = TIMEOUT_MS - (self.score / 8) as c_uint;
+        // decrement the cliff separation for every 100 units of score (I don't think people can make it that far)
+        self.cliff_separation = CLIFF_SEPARATION - self.score / 100;
+        self.draw_cliffs(&mut frame, false);    // `true` means GOD mode! (ehm, debug mode)
 
         match self.collision {
             Some(msg) => {
@@ -196,7 +206,7 @@ impl Game {
         println!("{}", self.top);
         print!("\r{}|{}", &self.side, frame.join(&("|\n\r".to_owned() + &self.side + "|")));
         print!("\r{}", self.bottom);
-        print_msg(&format!("SCORE: {}", self.score), Some("G"));
+        print_msg(&format!("SCORE: {}\tSPEED: {}", self.score, TIMEOUT_MS - self.poll_timeout), Some("G"));
     }
 
     pub fn jumper_shift(&mut self, key: Key) {
@@ -218,14 +228,14 @@ impl Game {
 
         let last_cliff_size = self.cliffs[self.num_cliffs - 1].size.1;
         if self.line_since_last > last_cliff_size &&
-        self.line_since_last - last_cliff_size == CLIFF_SEPARATION {
+        self.line_since_last - last_cliff_size == self.cliff_separation {
             self.line_since_last = 0;
             self.cliffs.push(Cliff::new(&self.jumper));
             self.num_cliffs += 1;
         }
     }
 
-    pub fn draw_cliffs(&mut self, frame: &mut [String], ignore_once: bool) {
+    pub fn draw_cliffs(&mut self, frame: &mut [String], ignore_collision: bool) {
         let area = self.jumper.area;
         fn collision(string: &str) -> Option<&'static str> {
             for j in string.chars() {
@@ -246,10 +256,15 @@ impl Game {
                     let line = frame[i].clone();
                     let (start, end) = (&line[..x_pos], &line[x_pos + body_width..]);
                     frame[i] = start.to_owned() + &cliff.body[i - y_pos] + end;
-                    self.collision = collision(&line[x_pos..x_pos + body_width]);
+                    // we ignore the collision thing only for printing the last frame while quitting
+                    // well, this will also be useful for tests
+                    self.collision = match ignore_collision {
+                        true => None,
+                        false => collision(&line[x_pos..x_pos + body_width]),
+                    };
                 }
-                // we ignore the collision thing only for printing the last frame while quitting
-                if !ignore_once && self.collision.is_some() {
+
+                if self.collision.is_some() {
                     return
                 }
             }
