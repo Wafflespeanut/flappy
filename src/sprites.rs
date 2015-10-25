@@ -65,7 +65,7 @@ impl Cliff {
         let mut rng = thread_rng();
         let full_width = jumper.area.width.0;
         let half_width = full_width / 2;
-        let x_size: usize = rng.gen_range(2, half_width);
+        let x_size: usize = rng.gen_range(3, half_width - half_width / 5);
         let y_size: usize = rng.gen_range(4, 6);
 
         let left_side = {
@@ -117,6 +117,8 @@ impl Cliff {
 pub struct Game {           // struct to hold the global attributes of a new game
     jumper: Jumper,
     cliffs: Vec<Cliff>,
+    num_cliffs: usize,      // just to stop finding the length every time we update the cliffs
+    line_since_last: usize,     // line since the last cliff was thrown (since the cliffs are equally spaced)
     collision: Option<&'static str>,
     // about-to-deprecate fields
     side: String,
@@ -148,6 +150,8 @@ impl Game {
         Ok(Game {
             jumper: jumper,
             cliffs: vec![cliff],
+            num_cliffs: 1,
+            line_since_last: 0,
             collision: None,
             side: multiply(" ", left_indent),
             top: user_env_top,
@@ -184,12 +188,23 @@ impl Game {
         self.jumper.shift(x_pos, key)
     }
 
-    pub fn cliffs_shift(&mut self, y_pos: usize) {
-        for cliff in &mut self.cliffs {     // shift the cliffs first (i.e., check & update the fields)
-            if cliff.erase_body() {
-                *cliff = Cliff::new(&self.jumper);
+    pub fn cliffs_shift(&mut self, y_pos: usize) {self.line_since_last += 1;
+        let mut i = 0;
+        while i < self.num_cliffs {     // shift the cliffs first (i.e., check & update the fields)
+            if self.cliffs[i].erase_body() {
+                self.cliffs.remove(i);
+                self.num_cliffs -= 1;
             }
-            cliff.shift(y_pos);
+            self.cliffs[i].shift(y_pos);
+            i += 1;
+        }
+
+        let last_cliff_size = self.cliffs[self.num_cliffs - 1].size.1;
+        if self.line_since_last > last_cliff_size &&
+        self.line_since_last - last_cliff_size == CLIFF_SEPARATION {
+            self.line_since_last = 0;
+            self.cliffs.push(Cliff::new(&self.jumper));
+            self.num_cliffs += 1;
         }
     }
 
