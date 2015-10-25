@@ -1,51 +1,62 @@
 use helpers::*;
 use keyevents::Key;
 use rand::{thread_rng, Rng};
-use {WIDTH, HEIGHT, CLIFF_SEPARATION};
+use {CLIFF_SEPARATION, CLIFF_Y, HEIGHT, JUMPER_X, JUMPER_Y, WIDTH};
 
 #[derive(Clone, Debug)]
 struct Jumper {
     area: FallArea,
-    x_pos: usize,       // for now, he's got only one DOF
+    x_pos: usize,
+    y_pos: usize,
     body: Vec<String>,
     size: (usize, usize),
 }
 
 impl Jumper {
     fn new(fall_area: FallArea) -> Jumper {
-        let body = ["  \\\\ //  ",
-                    "===[O]==="];   // assume that it's the front view of a falling jumper
+        let body = [" \\\\ // ",
+                    "==[O]=="];   // assume that it's the front view of a falling jumper
+        let size = (body[0].len(), body.len());
         Jumper {
             area: fall_area,
-            x_pos: (fall_area.width.0 / 2),     // initial x-position of the jumper
+            x_pos: (fall_area.width.0 / 2),
+            y_pos: (fall_area.height.0 / 4),
             body: body
                   .iter()
                   .map(|&string| string.to_owned())
                   .collect(),
-            size: (body[0].len(), body.len())
+            size: size
         }
     }
 
     // base frame over which subsequent frames are drawn
     fn draw(&self) -> Vec<String> {
-        let fall_area = self.area;
+        let (y_pos, fall_area) = (self.y_pos, self.area);
         let (body_width, body_height) = (self.size.0, self.size.1);
         (0..fall_area.height.0).map(|i| {
-            match i < body_height {
-                true => multiply(" ", self.x_pos) + &self.body[i]
-                               + &multiply(" ", fall_area.width.0 - (self.x_pos + body_width)),
-                false => multiply(" ", fall_area.width.0),
+            if i < y_pos || i >= y_pos + body_height {
+                multiply(" ", fall_area.width.0)
+            } else {
+                multiply(" ", self.x_pos) +
+                &self.body[i - y_pos] +
+                &multiply(" ", fall_area.width.0 - (self.x_pos + body_width))
             }
         }).collect()
     }
 
-    fn shift(&mut self, x_pos: usize, key: Key) {
+    fn shift(&mut self, key: Key) {
         match key {
-            Key::Right if (self.x_pos + x_pos + self.body[0].len()) < self.area.width.0 => {
-                self.x_pos += x_pos;
+            Key::Right if (self.x_pos + JUMPER_X + self.size.0) < self.area.width.0 => {
+                self.x_pos += JUMPER_X;
             },
-            Key::Left if (self.x_pos as isize - x_pos as isize) > 0 => {
-                self.x_pos -= x_pos;
+            Key::Left if (self.x_pos as isize - JUMPER_X as isize) > 0 => {
+                self.x_pos -= JUMPER_X;
+            },
+            Key::Up if (self.y_pos as isize - JUMPER_Y as isize) > 0 => {
+                // self.y_pos -= JUMPER_Y;
+            },
+            Key::Down if (self.y_pos + JUMPER_Y + self.size.1) < self.area.height.0 => {
+                // self.y_pos += JUMPER_Y;
             },
             _ => (),
         }
@@ -99,10 +110,10 @@ impl Cliff {
         }
     }
 
-    fn shift(&mut self, y_pos: usize) {
-        let diff = self.y_pos as isize - y_pos as isize;
+    fn shift(&mut self) {
+        let diff = self.y_pos as isize - CLIFF_Y as isize;
         if diff >= 0 {
-            self.y_pos -= y_pos;
+            self.y_pos -= CLIFF_Y;
         } else {
             self.body = self.body[1..].to_vec();
             self.size = (self.size.0, self.size.1 - 1);
@@ -114,13 +125,14 @@ impl Cliff {
     }
 }
 
-pub struct Game {           // struct to hold the global attributes of a new game
+pub struct Game {           // struct to hold all the objects required for a new game
     jumper: Jumper,
     cliffs: Vec<Cliff>,
     num_cliffs: usize,      // just to stop finding the length every time we update the cliffs
     line_since_last: usize,     // line since the last cliff was thrown (since the cliffs are equally spaced)
     collision: Option<&'static str>,
-    // about-to-deprecate fields
+    score: usize,
+    // FIXME: yuck! these should be replaced with cursor controllers ASAP
     side: String,
     top: String,
     bottom: String,
@@ -144,8 +156,8 @@ impl Game {
         // draw the dashed box for the frames to be drawn inside
         let dashes = multiply(" ", left_indent) + &multiply("-", box_width) + "--";
         // base & lid of the box
-        let user_env_top = multiply("\r\n", top_indent - 1) + &dashes;
-        let user_env_bottom = dashes + &multiply("\r\n", bottom_indent - 1);
+        let user_env_top = multiply("\r\n", top_indent) + &dashes;
+        let user_env_bottom = dashes + &multiply("\r\n", bottom_indent);
 
         Ok(Game {
             jumper: jumper,
@@ -153,6 +165,8 @@ impl Game {
             num_cliffs: 1,
             line_since_last: 0,
             collision: None,
+            score: 0,
+            // YUCK!!!
             side: multiply(" ", left_indent),
             top: user_env_top,
             bottom: user_env_bottom,
@@ -168,7 +182,7 @@ impl Game {
                 self.collision = None;      // workaround for printing the last frame while quitting
                 self.draw_cliffs(&mut frame, true);
                 self.print_frame(&frame);
-                print_msg(msg);
+                print_msg(msg, Some("Y"));
                 false
             },
             None => {
@@ -181,21 +195,24 @@ impl Game {
     pub fn print_frame(&self, frame: &[String]) {       // gameplay inside an outlined box
         println!("{}", self.top);
         print!("\r{}|{}", &self.side, frame.join(&("|\n\r".to_owned() + &self.side + "|")));
-        println!("\r{}", self.bottom);
+        print!("\r{}", self.bottom);
+        print_msg(&format!("SCORE: {}", self.score), Some("G"));
     }
 
-    pub fn jumper_shift(&mut self, x_pos: usize, key: Key) {
-        self.jumper.shift(x_pos, key)
+    pub fn jumper_shift(&mut self, key: Key) {
+        self.jumper.shift(key)
     }
 
-    pub fn cliffs_shift(&mut self, y_pos: usize) {self.line_since_last += 1;
+    pub fn cliffs_shift(&mut self) {
+        self.line_since_last += 1;
         let mut i = 0;
         while i < self.num_cliffs {     // shift the cliffs first (i.e., check & update the fields)
             if self.cliffs[i].erase_body() {
                 self.cliffs.remove(i);
                 self.num_cliffs -= 1;
+                self.score += 1;
             }
-            self.cliffs[i].shift(y_pos);
+            self.cliffs[i].shift();
             i += 1;
         }
 

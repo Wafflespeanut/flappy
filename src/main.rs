@@ -20,12 +20,16 @@ const HEIGHT: usize = 30;
 // difficulty attributes (inversely proportional to difficulty)
 const TIMEOUT_MS: c_uint = 100;         // gameplay speed
 const CLIFF_SEPARATION: usize = 6;      // throw cliffs every X lines
+// shift the jumper or cliff by X chars
+const JUMPER_X: usize = 3;
+const JUMPER_Y: usize = 1;       // 2-DOF won't be realistic and so, let's abandon it!
+const CLIFF_Y: usize = 1;
 
 fn main() {
     let _raw = match set_raw_mode() {   // old termios attributes (which will be restored on drop)
         Ok(term_attrib) => term_attrib,
         Err(err) => {
-            print_msg(err);
+            print_msg(err, None);
             return;
         }
     };
@@ -35,7 +39,7 @@ fn main() {
     let mut game = match Game::new() {
         Ok(stuff) => stuff,
         Err(err) => {
-            print_msg(&err);
+            print_msg(&err, None);
             return;
         }
     };
@@ -49,17 +53,17 @@ fn main() {
                     match keypress {        // proceeds immediately on input
                         Ok(key) => match key {
                             Key::Quit => {
-                                print_msg("\rGoodbye...\n\r");
+                                print_msg("\r\tGoodbye!\n\r", Some("B"));
                                 break
                             },
                             _ => {
                                 time_since_last_ns += precise_time_ns() - start_time;
                                 poll_timeout_ms = TIMEOUT_MS - ((time_since_last_ns / 1000000) as c_uint);
-                                game.jumper_shift(3, key)
+                                game.jumper_shift(key)
                             },
                         },
                         Err(err) => {
-                            print_msg(err);
+                            print_msg(err, None);
                             break
                         }
                     }
@@ -67,11 +71,11 @@ fn main() {
                 Poll::Wait => {
                     time_since_last_ns = 0;
                     poll_timeout_ms = TIMEOUT_MS;
-                    game.cliffs_shift(1);
+                    game.cliffs_shift();
                 },
             },
             Err(err) => {
-                print_msg(err);
+                print_msg(err, None);
                 break
             }
         }

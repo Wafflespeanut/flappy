@@ -1,7 +1,7 @@
 use libc::{c_ushort, STDOUT_FILENO};
 use libc::funcs::bsd44::ioctl;
 use std::iter::repeat;
-use TIOCGWINSZ;
+use {JUMPER_X, JUMPER_Y, TIOCGWINSZ};
 
 // minimum width & height (for a smoother gameplay)
 const WIN_COLS: usize = 40;
@@ -34,10 +34,11 @@ impl FallArea {
         if let Ok((rows, cols)) = size_result {
             if (width < WIN_COLS) | (height < WIN_ROWS) | (rows < WIN_ROWS) | (cols < WIN_COLS) {
                 return Err("Minimum window size is 30 rows and 40 columns!")
-            } else if (cols - 2 < width) | (rows - 2 < height) {
-                // the extra "2" is for drawing the dashed box
+            } else if (cols - 2 < width) | (rows - 2 < height) {    // the extra "2" is for drawing the dashed box
                 return Err("Requested window size is less than what's available!")
-            } else {
+            } else {    // update the width and height so that it's a multiple of displacements (smoother gameplay)
+                let width = width + JUMPER_X - width % JUMPER_X;
+                let height = height + JUMPER_Y - height % JUMPER_Y;
                 return Ok(FallArea {
                     width: (width, cols - width),
                     height: (height, rows - height),
@@ -53,6 +54,12 @@ pub fn multiply(ch: &str, length: usize) -> String {    // I don't wanna write t
     repeat(ch).take(length).collect()
 }
 
-pub fn print_msg(msg: &str) {
-    println!("\r\n\t{}\r\n", msg);
+pub fn print_msg(msg: &str, color: Option<&str>) {
+    let code = match color {    // these are enough for us!
+        Some("B") => 96,
+        Some("Y") => 93,
+        Some("G") => 92,
+        _ => 91,        // default to red
+    };
+    println!("\r\n\t\x1B[{}m{}\x1B[0m\r\n", code, msg);
 }
