@@ -8,12 +8,10 @@ mod sprites;
 
 use helpers::print_msg;
 use keyevents::*;
-use libc::{c_int, c_uint};
+use libc::c_uint;
 use sprites::Game;
 use time::precise_time_ns;
 
-// NOTE: system-dependent constant (not available in libc yet, so you'd have to get it from your system)
-const TIOCGWINSZ: c_int = 21523;
 // width & height for game
 const WIDTH: usize = 50;
 const HEIGHT: usize = 30;

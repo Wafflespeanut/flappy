@@ -1,7 +1,9 @@
 use libc::{c_ushort, STDOUT_FILENO};
-use libc::funcs::bsd44::ioctl;
+use libc::ioctl;
+use libc::TIOCGWINSZ;
+
 use std::iter::repeat;
-use {JUMPER_X, JUMPER_Y, TIOCGWINSZ};
+use {JUMPER_X, JUMPER_Y};
 
 // minimum width & height (for a smoother gameplay)
 const WIN_COLS: usize = 40;
