@@ -10,17 +10,6 @@ This game was inspired by the [tetris game written in Rust](https://www.reddit.c
 
 ## Usage
 
-### Set your terminal attributes!
-
-You need to find the system-dependent constant (TIOCGWINSZ) for your terminal and set it [here](https://github.com/Wafflespeanut/free-fall/blob/master/src/main.rs#L16). Since most of the unix-based OS have Python, you can do something like this...
-
-``` python
-import termios
-print termios.TIOCGWINSZ
-```
-
-### Reduce the font size!
-
 If the game doesn't work in its default configuration, then try resizing the terminal window and font size (and of course, the width and height) to fit the game in your default terminal (which I can do in my Ubuntu). If you have [xterm](https://en.wikipedia.org/wiki/Xterm), then you can do something like this...
 
 ``` bash
